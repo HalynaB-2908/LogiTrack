@@ -3,15 +3,20 @@
 namespace LogiTrack.WebApi.Controllers
 {
     [ApiController]
-    [Route("api/[controller]")]
+    [Route("api/v1/[controller]")]
+    [Produces("application/json")]
     public class VehiclesController : ControllerBase
     {
-        // Get a vehicle by id (route parameter)
+        // GET /api/v1/vehicles/{id}
         [HttpGet("{id:int}")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
         public IActionResult GetById([FromRoute] int id)
         {
             if (id <= 0) return BadRequest("Id must be greater than 0.");
 
+            // demo stub
             var demoVehicle = new
             {
                 Id = id,
@@ -23,4 +28,5 @@ namespace LogiTrack.WebApi.Controllers
         }
     }
 }
+
 

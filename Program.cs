@@ -1,4 +1,7 @@
 
+using LogiTrack.WebApi.Options;
+using LogiTrack.WebApi.Services;
+
 namespace LogiTrack.WebApi
 {
     public class Program
@@ -11,6 +14,11 @@ namespace LogiTrack.WebApi
             builder.Services.AddControllers();
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
+
+            builder.Services.Configure<LogisticsOptions>(
+                builder.Configuration.GetSection("Logistics")
+            );
+            builder.Services.AddScoped<IDeliveryTimeService, DeliveryTimeService>();
 
             var app = builder.Build();
 
