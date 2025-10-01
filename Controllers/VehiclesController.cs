@@ -16,7 +16,7 @@ namespace LogiTrack.WebApi.Controllers
         {
             if (id <= 0) return BadRequest("Id must be greater than 0.");
 
-            // demo stub
+            // demo
             var demoVehicle = new
             {
                 Id = id,

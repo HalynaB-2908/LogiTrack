@@ -11,7 +11,7 @@ namespace LogiTrack.WebApi.Services
         {
             _avgSpeedKmH = options.Value.AverageSpeedKmH > 0
                 ? options.Value.AverageSpeedKmH
-                : 60; // fallback
+                : 60;
         }
 
         public double Estimate(double distanceKm)
