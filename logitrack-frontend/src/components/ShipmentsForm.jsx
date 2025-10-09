@@ -2,12 +2,9 @@ import { useState } from 'react';
 import { getShipmentById, searchShipments, createShipment } from '../api';
 
 export default function ShipmentsForm({ onResult, onError }) {
-  // Get by ID
   const [id, setId] = useState('');
-  // Search
   const [q, setQ] = useState('');
   const [status, setStatus] = useState('');
-  // Create
   const [reference, setReference] = useState('');
   const [distanceKm, setDistanceKm] = useState('');
   const [weightKg, setWeightKg] = useState('');
@@ -23,61 +20,58 @@ export default function ShipmentsForm({ onResult, onError }) {
   };
 
   return (
-    <section style={box}>
-      <h2>Shipments</h2>
-
-      {/* GET /shipments/{id} */}
-      <div style={row}>
-        <input
-          placeholder="Shipment ID"
-          value={id}
-          onChange={e => setId(e.target.value)}
-        />
-        <button onClick={() => run(() => getShipmentById(id))} style={{ marginLeft: 8 }}>
-          GET /shipments/{'{id}'}
-        </button>
+    <section className="card">
+      <div className="card-header">
+        <h2>Shipments</h2>
+        <a className="btn ghost" href="/api/v1/shipments/export">
+          Download JSON
+        </a>
       </div>
 
-      {/* GET /shipments/search */}
-      <div style={row}>
-        <input placeholder="q" value={q} onChange={e => setQ(e.target.value)} />
-        <input placeholder="status" value={status} onChange={e => setStatus(e.target.value)} style={{ marginLeft: 8 }} />
-        <button onClick={() => run(() => searchShipments(q, status))} style={{ marginLeft: 8 }}>
-          GET /shipments/search
-        </button>
+      <div className="row">
+        <h3>Get by ID</h3>
+        <div className="controls">
+          <input
+            className="input"
+            placeholder="Shipment ID"
+            value={id}
+            onChange={e => setId(e.target.value)}
+          />
+          <button className="btn" onClick={() => run(() => getShipmentById(id))}>
+            GET /shipments/{'{id}'}
+          </button>
+        </div>
       </div>
 
-      {/* POST /shipments */}
-      <div style={row}>
-        <input placeholder="Reference" value={reference} onChange={e => setReference(e.target.value)} />
-        <input
-          placeholder="DistanceKm"
-          type="number"
-          value={distanceKm}
-          onChange={e => setDistanceKm(e.target.value)}
-          style={{ marginLeft: 8 }}
-        />
-        <input
-          placeholder="WeightKg"
-          type="number"
-          value={weightKg}
-          onChange={e => setWeightKg(e.target.value)}
-          style={{ marginLeft: 8 }}
-        />
-        <button
-          onClick={() => run(() => createShipment({
-            reference,
-            distanceKm: Number(distanceKm),
-            weightKg: Number(weightKg)
-          }))}
-          style={{ marginLeft: 8 }}
-        >
-          POST /shipments
-        </button>
+      <div className="row">
+        <h3>Search</h3>
+        <div className="controls">
+          <input className="input" placeholder="q" value={q} onChange={e => setQ(e.target.value)} />
+          <input className="input" placeholder="status" value={status} onChange={e => setStatus(e.target.value)} />
+          <button className="btn" onClick={() => run(() => searchShipments(q, status))}>
+            GET /shipments/search
+          </button>
+        </div>
+      </div>
+
+      <div className="row">
+        <h3>Create</h3>
+        <div className="controls">
+          <input className="input" placeholder="Reference" value={reference} onChange={e => setReference(e.target.value)} />
+          <input className="input" placeholder="DistanceKm" type="number" value={distanceKm} onChange={e => setDistanceKm(e.target.value)} />
+          <input className="input" placeholder="WeightKg" type="number" value={weightKg} onChange={e => setWeightKg(e.target.value)} />
+          <button
+            className="btn primary"
+            onClick={() => run(() => createShipment({
+              reference,
+              distanceKm: Number(distanceKm),
+              weightKg: Number(weightKg)
+            }))}
+          >
+            POST /shipments
+          </button>
+        </div>
       </div>
     </section>
   );
 }
-
-const box = { padding: 12, border: '1px solid #ddd', borderRadius: 8, marginBottom: 12 };
-const row = { marginTop: 8 };

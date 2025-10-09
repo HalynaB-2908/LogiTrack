@@ -1,0 +1,18 @@
+﻿[
+  {
+    "id": 1,
+    "reference": "ORDER-2025-001",
+    "status": "Planned",
+    "distanceKm": 120,
+    "weightKg": 15,
+    "createdUtc": "2025-10-08T18:34:11.6001528Z"
+  },
+  {
+    "id": 2,
+    "reference": "ORDER-2025-002",
+    "status": "Planned",
+    "distanceKm": 180,
+    "weightKg": 20,
+    "createdUtc": "2025-10-08T20:16:09.2972931Z"
+  }
+]

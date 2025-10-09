@@ -3,6 +3,7 @@ using Microsoft.Extensions.Options;
 using LogiTrack.WebApi.Contracts;
 using LogiTrack.WebApi.Options;
 using LogiTrack.WebApi.Services;
+using LogiTrack.WebApi.Repositories.Shipments;
 
 namespace LogiTrack.WebApi.Controllers
 {
@@ -12,13 +13,18 @@ namespace LogiTrack.WebApi.Controllers
     public class ShipmentsController : ControllerBase
     {
         private readonly LogisticsOptions _options;
-        private readonly IDeliveryTimeService _delivery; // service via DI
+        private readonly IDeliveryTimeService _delivery;
+        private readonly IShipmentsRepository _repository;
 
-        // Inject configuration and custom service
-        public ShipmentsController(IOptions<LogisticsOptions> options, IDeliveryTimeService delivery)
+        // Dependency Injection
+        public ShipmentsController(
+            IOptions<LogisticsOptions> options,
+            IDeliveryTimeService delivery,
+            IShipmentsRepository repository)
         {
             _options = options.Value;
             _delivery = delivery;
+            _repository = repository;
         }
 
         // GET /api/v1/shipments/{id}
@@ -26,35 +32,26 @@ namespace LogiTrack.WebApi.Controllers
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public IActionResult GetById([FromRoute] int id)
+        public async Task<IActionResult> GetById([FromRoute] int id)
         {
             if (id <= 0) return BadRequest("Id must be greater than 0.");
 
-            var demoShipment = new
-            {
-                Id = id,
-                Reference = "DEMO-SHP-001",
-                // from appsettings.json (Options)
-                Status = _options.DefaultShipmentStatus
-            };
+            var shipment = await _repository.GetByIdAsync(id);
+            if (shipment == null) return NotFound($"Shipment with id {id} not found.");
 
-            return Ok(demoShipment);
+            return Ok(shipment);
         }
 
         // GET /api/v1/shipments/search?q=&status=
         [HttpGet("search")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        public IActionResult Search([FromQuery] string? q, [FromQuery] string? status)
+        public async Task<IActionResult> Search([FromQuery] string? q, [FromQuery] string? status)
         {
             if (string.IsNullOrWhiteSpace(q) && string.IsNullOrWhiteSpace(status))
                 return BadRequest("At least one search parameter must be provided.");
 
-            var results = new[]
-            {
-                new { Id = 1, Reference = "DEMO-SHP-001", Status = status ?? _options.DefaultShipmentStatus }
-            };
-
+            var results = await _repository.SearchAsync(q, status);
             return Ok(results);
         }
 
@@ -62,32 +59,60 @@ namespace LogiTrack.WebApi.Controllers
         [HttpPost]
         [ProducesResponseType(StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        public IActionResult Create([FromBody] CreateShipmentDto request)
+        public async Task<IActionResult> Create([FromBody] CreateShipmentDto request)
         {
             if (request == null || string.IsNullOrWhiteSpace(request.Reference))
                 return BadRequest("Reference is required.");
             if (request.DistanceKm <= 0)
                 return BadRequest("DistanceKm must be greater than 0.");
 
-            // compute ETA using service
             var etaHours = _delivery.Estimate(request.DistanceKm);
-
-            // simple demo price using Options
             var estimatedPrice = _options.BasePricePerKm * request.DistanceKm
                                + _options.WeightPricePerKg * (request.WeightKg);
 
-            var newShipment = new
+            var shipment = new Models.Shipment
             {
-                Id = 99,
                 Reference = request.Reference,
                 Status = _options.DefaultShipmentStatus,
-                EstimatedTimeHours = Math.Round(etaHours, 2),
-                EstimatedArrival= DateTime.Now.AddHours(etaHours).ToString("yyyy-MM-dd HH:mm"),
-                EstimatedPrice = Math.Round(estimatedPrice, 2),
-                Currency = _options.Currency
+                DistanceKm = request.DistanceKm,
+                WeightKg = request.WeightKg,
+                CreatedUtc = DateTime.UtcNow
             };
 
-            return CreatedAtAction(nameof(GetById), new { id = newShipment.Id }, newShipment);
+            var created = await _repository.CreateAsync(shipment);
+
+            var response = new
+            {
+                created.Id,
+                created.Reference,
+                created.Status,
+                EstimatedTimeHours = Math.Round(etaHours, 2),
+                EstimatedArrival = DateTime.Now.AddHours(etaHours).ToString("yyyy-MM-dd HH:mm"),
+                EstimatedPrice = Math.Round(estimatedPrice, 2),
+                _options.Currency
+            };
+
+            return CreatedAtAction(nameof(GetById), new { id = created.Id }, response);
+        }
+
+        // GET /api/v1/shipments/export
+        [HttpGet("export")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public IActionResult Export(
+            [FromServices] IOptions<StorageOptions> storage,
+            [FromServices] IWebHostEnvironment env)
+        {
+            var path = storage.Value.ShipmentsFilePath;
+            if (!Path.IsPathRooted(path))
+                path = Path.Combine(env.ContentRootPath, path);
+
+            if (!System.IO.File.Exists(path))
+                return NotFound("Data file not found.");
+
+            var bytes = System.IO.File.ReadAllBytes(path);
+            return File(bytes, "application/json", "shipments.json");
         }
     }
 }
+
