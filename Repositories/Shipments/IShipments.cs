@@ -6,7 +6,8 @@ namespace LogiTrack.WebApi.Repositories.Shipments
     {
         Task<IEnumerable<Shipment>> GetAllAsync();
         Task<Shipment?> GetByIdAsync(int id);
-        Task<IEnumerable<Shipment>> SearchAsync(string? q, string? status);
+        Task<IEnumerable<Shipment>> SearchAsync(string? q, ShipmentStatus? status);
         Task<Shipment> CreateAsync(Shipment shipment);
     }
 }
+

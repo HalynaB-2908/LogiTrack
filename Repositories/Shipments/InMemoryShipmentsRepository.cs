@@ -18,13 +18,16 @@ namespace LogiTrack.WebApi.Repositories.Shipments
             return Task.FromResult(shipment);
         }
 
-        public Task<IEnumerable<Shipment>> SearchAsync(string? q, string? status)
+        public Task<IEnumerable<Shipment>> SearchAsync(string? q, ShipmentStatus? status)
         {
             var results = _shipments.AsEnumerable();
+
             if (!string.IsNullOrWhiteSpace(q))
-                results = results.Where(s => s.Reference.Contains(q, StringComparison.OrdinalIgnoreCase));
-            if (!string.IsNullOrWhiteSpace(status))
-                results = results.Where(s => s.Status.Equals(status, StringComparison.OrdinalIgnoreCase));
+                results = results.Where(s =>
+                    s.Reference.Contains(q, StringComparison.OrdinalIgnoreCase));
+
+            if (status.HasValue)
+                results = results.Where(s => s.Status == status.Value);
 
             return Task.FromResult(results);
         }
@@ -32,8 +35,13 @@ namespace LogiTrack.WebApi.Repositories.Shipments
         public Task<Shipment> CreateAsync(Shipment shipment)
         {
             shipment.Id = _nextId++;
+
+            if (!Enum.IsDefined(typeof(ShipmentStatus), shipment.Status))
+                shipment.Status = ShipmentStatus.Planned;
+
             _shipments.Add(shipment);
             return Task.FromResult(shipment);
         }
     }
 }
+

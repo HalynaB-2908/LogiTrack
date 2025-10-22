@@ -1,5 +1,6 @@
 ﻿using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using LogiTrack.WebApi.Models;
 
 namespace LogiTrack.WebApi.Repositories.Shipments
@@ -8,11 +9,17 @@ namespace LogiTrack.WebApi.Repositories.Shipments
     {
         private readonly string _filePath;
         private readonly SemaphoreSlim _lock = new(1, 1);
+
         private static readonly JsonSerializerOptions _json = new()
         {
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
             WriteIndented = true
         };
+
+        static FileShipmentsRepository()
+        {
+            _json.Converters.Add(new JsonStringEnumConverter());
+        }
 
         public FileShipmentsRepository(string filePath)
         {
@@ -30,15 +37,16 @@ namespace LogiTrack.WebApi.Repositories.Shipments
             return items.FirstOrDefault(s => s.Id == id);
         }
 
-        public async Task<IEnumerable<Shipment>> SearchAsync(string? q, string? status)
+        public async Task<IEnumerable<Shipment>> SearchAsync(string? q, ShipmentStatus? status)
         {
             var items = await ReadAllAsync();
 
             if (!string.IsNullOrWhiteSpace(q))
-                items = items.Where(s => s.Reference.Contains(q, StringComparison.OrdinalIgnoreCase)).ToList();
+                items = items.Where(s =>
+                    s.Reference.Contains(q, StringComparison.OrdinalIgnoreCase)).ToList();
 
-            if (!string.IsNullOrWhiteSpace(status))
-                items = items.Where(s => s.Status.Equals(status, StringComparison.OrdinalIgnoreCase)).ToList();
+            if (status.HasValue)
+                items = items.Where(s => s.Status == status.Value).ToList();
 
             return items;
         }
@@ -53,7 +61,9 @@ namespace LogiTrack.WebApi.Repositories.Shipments
 
                 shipment.Id = nextId;
                 if (shipment.CreatedUtc == default) shipment.CreatedUtc = DateTime.UtcNow;
-                if (string.IsNullOrWhiteSpace(shipment.Status)) shipment.Status = "Planned";
+
+                if (!Enum.IsDefined(typeof(ShipmentStatus), shipment.Status))
+                    shipment.Status = ShipmentStatus.Planned;
 
                 items.Add(shipment);
                 await WriteAllAsync(items);
