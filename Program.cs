@@ -1,9 +1,10 @@
-using LogiTrack.WebApi.Options;
-using LogiTrack.WebApi.Services;
-using LogiTrack.WebApi.Repositories.Shipments;
-using Microsoft.Extensions.Options;
 using LogiTrack.WebApi.Data;
+using LogiTrack.WebApi.Options;
+using LogiTrack.WebApi.Repositories.Shipments;
+using LogiTrack.WebApi.Services;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+using System.Text.Json.Serialization;
 
 namespace LogiTrack.WebApi
 {
@@ -13,7 +14,9 @@ namespace LogiTrack.WebApi
         {
             var builder = WebApplication.CreateBuilder(args);
 
-            builder.Services.AddControllers();
+            builder.Services
+                .AddControllers()
+                .AddJsonOptions(o => o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
 

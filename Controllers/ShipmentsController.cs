@@ -4,7 +4,6 @@ using Microsoft.EntityFrameworkCore;
 using LogiTrack.WebApi.Contracts;
 using LogiTrack.WebApi.Options;
 using LogiTrack.WebApi.Services;
-using LogiTrack.WebApi.Repositories.Shipments;
 using LogiTrack.WebApi.Models;
 using LogiTrack.WebApi.Data;
 
@@ -17,18 +16,15 @@ namespace LogiTrack.WebApi.Controllers
     {
         private readonly LogisticsOptions _options;
         private readonly IDeliveryTimeService _delivery;
-        private readonly IShipmentsRepository _repository;
         private readonly LogiTrackDbContext _db;
 
         public ShipmentsController(
             IOptions<LogisticsOptions> options,
             IDeliveryTimeService delivery,
-            IShipmentsRepository repository,
             LogiTrackDbContext db)
         {
             _options = options.Value;
             _delivery = delivery;
-            _repository = repository;
             _db = db;
         }
 
@@ -36,7 +32,27 @@ namespace LogiTrack.WebApi.Controllers
         [ProducesResponseType(StatusCodes.Status200OK)]
         public async Task<IActionResult> GetAll()
         {
-            var items = await _db.Shipments.AsNoTracking().ToListAsync();
+            var items = await _db.Shipments
+                .Include(s => s.Customer)
+                .Include(s => s.Vehicle)
+                .OrderBy(s => s.Id)
+                .Select(s => new
+                {
+                    id = s.Id,
+                    reference = s.Reference,
+                    status = s.Status,
+                    distanceKm = s.DistanceKm,
+                    weightKg = s.WeightKg,
+                    createdUtc = s.CreatedUtc,
+                    customerId = s.CustomerId,
+                    customerName = s.Customer != null ? s.Customer.Name : null,
+                    vehicleId = s.VehicleId,
+                    vehiclePlate = s.Vehicle != null ? s.Vehicle.PlateNumber : null,
+                    estimatedPrice = Math.Round(_options.BasePricePerKm * s.DistanceKm + _options.WeightPricePerKg * s.WeightKg, 2),
+                    currency = _options.Currency
+                })
+                .ToListAsync();
+
             return Ok(items);
         }
 
@@ -47,9 +63,30 @@ namespace LogiTrack.WebApi.Controllers
         public async Task<IActionResult> GetById([FromRoute] int id)
         {
             if (id <= 0) return BadRequest("Id must be greater than 0.");
-            var shipment = await _repository.GetByIdAsync(id);
-            if (shipment == null) return NotFound($"Shipment with id {id} not found.");
-            return Ok(shipment);
+
+            var s = await _db.Shipments
+                .Include(x => x.Customer)
+                .Include(x => x.Vehicle)
+                .Where(x => x.Id == id)
+                .Select(x => new
+                {
+                    id = x.Id,
+                    reference = x.Reference,
+                    status = x.Status,
+                    distanceKm = x.DistanceKm,
+                    weightKg = x.WeightKg,
+                    createdUtc = x.CreatedUtc,
+                    customerId = x.CustomerId,
+                    customerName = x.Customer != null ? x.Customer.Name : null,
+                    vehicleId = x.VehicleId,
+                    vehiclePlate = x.Vehicle != null ? x.Vehicle.PlateNumber : null,
+                    estimatedPrice = Math.Round(_options.BasePricePerKm * x.DistanceKm + _options.WeightPricePerKg * x.WeightKg, 2),
+                    currency = _options.Currency
+                })
+                .FirstOrDefaultAsync();
+
+            if (s == null) return NotFound($"Shipment with id {id} not found.");
+            return Ok(s);
         }
 
         [HttpGet("search")]
@@ -69,7 +106,36 @@ namespace LogiTrack.WebApi.Controllers
                     return BadRequest($"Unknown status '{status}'. Allowed: {string.Join(", ", Enum.GetNames(typeof(ShipmentStatus)))}");
             }
 
-            var results = await _repository.SearchAsync(q, statusEnum);
+            var query = _db.Shipments
+                .Include(s => s.Customer)
+                .Include(s => s.Vehicle)
+                .AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(q))
+                query = query.Where(s => s.Reference.Contains(q));
+
+            if (statusEnum.HasValue)
+                query = query.Where(s => s.Status == statusEnum.Value);
+
+            var results = await query
+                .OrderBy(s => s.Id)
+                .Select(s => new
+                {
+                    id = s.Id,
+                    reference = s.Reference,
+                    status = s.Status,
+                    distanceKm = s.DistanceKm,
+                    weightKg = s.WeightKg,
+                    createdUtc = s.CreatedUtc,
+                    customerId = s.CustomerId,
+                    customerName = s.Customer != null ? s.Customer.Name : null,
+                    vehicleId = s.VehicleId,
+                    vehiclePlate = s.Vehicle != null ? s.Vehicle.PlateNumber : null,
+                    estimatedPrice = Math.Round(_options.BasePricePerKm * s.DistanceKm + _options.WeightPricePerKg * s.WeightKg, 2),
+                    currency = _options.Currency
+                })
+                .ToListAsync();
+
             return Ok(results);
         }
 
@@ -83,37 +149,42 @@ namespace LogiTrack.WebApi.Controllers
             if (request.DistanceKm <= 0)
                 return BadRequest("DistanceKm must be greater than 0.");
 
-            var etaHours = _delivery.Estimate(request.DistanceKm);
-            var estimatedPrice = _options.BasePricePerKm * request.DistanceKm
-                               + _options.WeightPricePerKg * request.WeightKg;
-
             var defaultStatus = Enum.TryParse<ShipmentStatus>(_options.DefaultShipmentStatus, true, out var parsedStatus)
                 ? parsedStatus
                 : ShipmentStatus.Planned;
 
-            var shipment = new Shipment
+            var entity = new Shipment
             {
-                Reference = request.Reference,
+                Reference = request.Reference.Trim(),
                 Status = defaultStatus,
                 DistanceKm = request.DistanceKm,
                 WeightKg = request.WeightKg,
+                CustomerId = request.CustomerId,
+                VehicleId = request.VehicleId,
                 CreatedUtc = DateTime.UtcNow
             };
 
-            var created = await _repository.CreateAsync(shipment);
+            _db.Shipments.Add(entity);
+            await _db.SaveChangesAsync();
 
-            var response = new
+            var etaHours = _delivery.Estimate(entity.DistanceKm);
+            var estimatedPrice = Math.Round(_options.BasePricePerKm * entity.DistanceKm + _options.WeightPricePerKg * entity.WeightKg, 2);
+
+            return CreatedAtAction(nameof(GetById), new { id = entity.Id }, new
             {
-                created.Id,
-                created.Reference,
-                created.Status,
-                EstimatedTimeHours = Math.Round(etaHours, 2),
-                EstimatedArrival = DateTime.Now.AddHours(etaHours).ToString("yyyy-MM-dd HH:mm"),
-                EstimatedPrice = Math.Round(estimatedPrice, 2),
-                Currency = _options.Currency
-            };
-
-            return CreatedAtAction(nameof(GetById), new { id = created.Id }, response);
+                id = entity.Id,
+                entity.Reference,
+                entity.Status,
+                distanceKm = entity.DistanceKm,
+                weightKg = entity.WeightKg,
+                createdUtc = entity.CreatedUtc,
+                customerId = entity.CustomerId,
+                vehicleId = entity.VehicleId,
+                estimatedTimeHours = Math.Round(etaHours, 2),
+                estimatedArrival = DateTime.Now.AddHours(etaHours).ToString("yyyy-MM-dd HH:mm"),
+                estimatedPrice,
+                currency = _options.Currency
+            });
         }
 
         [HttpPut("{id:int}")]
@@ -131,9 +202,11 @@ namespace LogiTrack.WebApi.Controllers
             var entity = await _db.Shipments.FirstOrDefaultAsync(s => s.Id == id);
             if (entity == null) return NotFound($"Shipment with id {id} not found.");
 
-            entity.Reference = request.Reference;
+            entity.Reference = request.Reference.Trim();
             entity.DistanceKm = request.DistanceKm;
             entity.WeightKg = request.WeightKg;
+            entity.CustomerId = request.CustomerId;
+            entity.VehicleId = request.VehicleId;
 
             await _db.SaveChangesAsync();
             return NoContent();

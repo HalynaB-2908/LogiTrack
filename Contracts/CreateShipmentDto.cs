@@ -2,9 +2,12 @@
 {
     public class CreateShipmentDto
     {
-        public string? Reference { get; set; }      
-        public double DistanceKm { get; set; }      
-        public double WeightKg { get; set; }        
+        public string? Reference { get; set; }
+        public double DistanceKm { get; set; }
+        public double WeightKg { get; set; }
+
+        public int? CustomerId { get; set; }   
+        public int? VehicleId { get; set; }    
     }
 }
 
