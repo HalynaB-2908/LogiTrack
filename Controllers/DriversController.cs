@@ -11,53 +11,43 @@ namespace LogiTrack.WebApi.Controllers
     [Route("api/v1/[controller]")]
     [Produces("application/json")]
     [Authorize(Roles = "Admin,User")]
-    public class CustomersController : ControllerBase
+    public class DriversController : ControllerBase
     {
         private readonly LogiTrackDbContext _db;
 
-        public CustomersController(LogiTrackDbContext db)
+        public DriversController(LogiTrackDbContext db)
         {
             _db = db;
         }
 
-        public class CustomerDto
+        public class DriverDto
         {
             public int Id { get; set; }
-            public string Name { get; set; } = default!;
-            public string Email { get; set; } = default!;
+            public string FullName { get; set; } = default!;
             public string? Phone { get; set; }
-            public string? Address { get; set; }
         }
 
-        public class UpsertCustomerDto
+        public class UpsertDriverDto
         {
             [Required, MaxLength(200)]
-            public string Name { get; set; } = default!;
-
-            [Required, MaxLength(200), EmailAddress]
-            public string Email { get; set; } = default!;
+            public string FullName { get; set; } = default!;
 
             [MaxLength(50)]
             public string? Phone { get; set; }
-
-            [MaxLength(300)]
-            public string? Address { get; set; }
         }
 
         [HttpGet]
         [ProducesResponseType(StatusCodes.Status200OK)]
         public async Task<IActionResult> GetAll()
         {
-            var items = await _db.Customers
+            var items = await _db.Drivers
                 .AsNoTracking()
-                .OrderBy(c => c.Id)
-                .Select(c => new CustomerDto
+                .OrderBy(d => d.Id)
+                .Select(d => new DriverDto
                 {
-                    Id = c.Id,
-                    Name = c.Name,
-                    Email = c.Email,
-                    Phone = c.Phone,
-                    Address = c.Address
+                    Id = d.Id,
+                    FullName = d.FullName,
+                    Phone = d.Phone
                 })
                 .ToListAsync();
 
@@ -72,20 +62,18 @@ namespace LogiTrack.WebApi.Controllers
         {
             if (id <= 0) return BadRequest("Id must be greater than 0.");
 
-            var item = await _db.Customers
+            var item = await _db.Drivers
                 .AsNoTracking()
-                .Where(c => c.Id == id)
-                .Select(c => new CustomerDto
+                .Where(d => d.Id == id)
+                .Select(d => new DriverDto
                 {
-                    Id = c.Id,
-                    Name = c.Name,
-                    Email = c.Email,
-                    Phone = c.Phone,
-                    Address = c.Address
+                    Id = d.Id,
+                    FullName = d.FullName,
+                    Phone = d.Phone
                 })
                 .FirstOrDefaultAsync();
 
-            if (item == null) return NotFound($"Customer with id {id} not found.");
+            if (item == null) return NotFound($"Driver with id {id} not found.");
 
             return Ok(item);
         }
@@ -94,28 +82,24 @@ namespace LogiTrack.WebApi.Controllers
         [Authorize(Roles = "Admin")]
         [ProducesResponseType(StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        public async Task<IActionResult> Create([FromBody] UpsertCustomerDto dto)
+        public async Task<IActionResult> Create([FromBody] UpsertDriverDto dto)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
 
-            var entity = new Customer
+            var entity = new Driver
             {
-                Name = dto.Name.Trim(),
-                Email = dto.Email.Trim(),
-                Phone = dto.Phone,
-                Address = dto.Address
+                FullName = dto.FullName.Trim(),
+                Phone = dto.Phone
             };
 
-            _db.Customers.Add(entity);
+            _db.Drivers.Add(entity);
             await _db.SaveChangesAsync();
 
-            return CreatedAtAction(nameof(GetById), new { id = entity.Id }, new CustomerDto
+            return CreatedAtAction(nameof(GetById), new { id = entity.Id }, new DriverDto
             {
                 Id = entity.Id,
-                Name = entity.Name,
-                Email = entity.Email,
-                Phone = entity.Phone,
-                Address = entity.Address
+                FullName = entity.FullName,
+                Phone = entity.Phone
             });
         }
 
@@ -124,18 +108,16 @@ namespace LogiTrack.WebApi.Controllers
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> Update([FromRoute] int id, [FromBody] UpsertCustomerDto dto)
+        public async Task<IActionResult> Update([FromRoute] int id, [FromBody] UpsertDriverDto dto)
         {
             if (id <= 0) return BadRequest("Id must be greater than 0.");
             if (!ModelState.IsValid) return BadRequest(ModelState);
 
-            var entity = await _db.Customers.FirstOrDefaultAsync(c => c.Id == id);
-            if (entity == null) return NotFound($"Customer with id {id} not found.");
+            var entity = await _db.Drivers.FirstOrDefaultAsync(d => d.Id == id);
+            if (entity == null) return NotFound($"Driver with id {id} not found.");
 
-            entity.Name = dto.Name.Trim();
-            entity.Email = dto.Email.Trim();
+            entity.FullName = dto.FullName.Trim();
             entity.Phone = dto.Phone;
-            entity.Address = dto.Address;
 
             await _db.SaveChangesAsync();
             return NoContent();
@@ -150,10 +132,10 @@ namespace LogiTrack.WebApi.Controllers
         {
             if (id <= 0) return BadRequest("Id must be greater than 0.");
 
-            var entity = await _db.Customers.FirstOrDefaultAsync(c => c.Id == id);
-            if (entity == null) return NotFound($"Customer with id {id} not found.");
+            var entity = await _db.Drivers.FirstOrDefaultAsync(d => d.Id == id);
+            if (entity == null) return NotFound($"Driver with id {id} not found.");
 
-            _db.Customers.Remove(entity);
+            _db.Drivers.Remove(entity);
             await _db.SaveChangesAsync();
             return NoContent();
         }

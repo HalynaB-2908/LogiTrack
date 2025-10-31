@@ -11,12 +11,13 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using LogiTrack.WebApi.Seed;
 
 namespace LogiTrack.WebApi
 {
     public class Program
     {
-        public static void Main(string[] args)
+        public static async Task Main(string[] args)   
         {
             var builder = WebApplication.CreateBuilder(args);
 
@@ -110,6 +111,12 @@ namespace LogiTrack.WebApi
 
             var app = builder.Build();
 
+            using (var scope = app.Services.CreateScope())
+            {
+                var services = scope.ServiceProvider;
+                await SeedData.InitializeAsync(services);
+            }
+
             if (app.Environment.IsDevelopment())
             {
                 app.UseSwagger();
@@ -123,7 +130,7 @@ namespace LogiTrack.WebApi
 
             app.MapControllers();
 
-            app.Run();
+            await app.RunAsync(); 
         }
     }
 }

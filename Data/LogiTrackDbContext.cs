@@ -14,7 +14,6 @@ namespace LogiTrack.WebApi.Data
         public DbSet<Vehicle> Vehicles => Set<Vehicle>();
         public DbSet<Driver> Drivers => Set<Driver>();
 
-        // нове:
         public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)

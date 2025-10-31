@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using Microsoft.EntityFrameworkCore;
 using LogiTrack.WebApi.Contracts;
@@ -12,6 +13,7 @@ namespace LogiTrack.WebApi.Controllers
     [ApiController]
     [Route("api/v1/[controller]")]
     [Produces("application/json")]
+    [Authorize(Roles = "Admin,User")]
     public class ShipmentsController : ControllerBase
     {
         private readonly LogisticsOptions _options;
@@ -48,7 +50,11 @@ namespace LogiTrack.WebApi.Controllers
                     customerName = s.Customer != null ? s.Customer.Name : null,
                     vehicleId = s.VehicleId,
                     vehiclePlate = s.Vehicle != null ? s.Vehicle.PlateNumber : null,
-                    estimatedPrice = Math.Round(_options.BasePricePerKm * s.DistanceKm + _options.WeightPricePerKg * s.WeightKg, 2),
+                    estimatedPrice = Math.Round(
+                        _options.BasePricePerKm * s.DistanceKm
+                        + _options.WeightPricePerKg * s.WeightKg,
+                        2
+                    ),
                     currency = _options.Currency
                 })
                 .ToListAsync();
@@ -80,7 +86,11 @@ namespace LogiTrack.WebApi.Controllers
                     customerName = x.Customer != null ? x.Customer.Name : null,
                     vehicleId = x.VehicleId,
                     vehiclePlate = x.Vehicle != null ? x.Vehicle.PlateNumber : null,
-                    estimatedPrice = Math.Round(_options.BasePricePerKm * x.DistanceKm + _options.WeightPricePerKg * x.WeightKg, 2),
+                    estimatedPrice = Math.Round(
+                        _options.BasePricePerKm * x.DistanceKm
+                        + _options.WeightPricePerKg * x.WeightKg,
+                        2
+                    ),
                     currency = _options.Currency
                 })
                 .FirstOrDefaultAsync();
@@ -103,7 +113,9 @@ namespace LogiTrack.WebApi.Controllers
                 if (Enum.TryParse<ShipmentStatus>(status, true, out var parsed))
                     statusEnum = parsed;
                 else
-                    return BadRequest($"Unknown status '{status}'. Allowed: {string.Join(", ", Enum.GetNames(typeof(ShipmentStatus)))}");
+                    return BadRequest(
+                        $"Unknown status '{status}'. Allowed: {string.Join(", ", Enum.GetNames(typeof(ShipmentStatus)))}"
+                    );
             }
 
             var query = _db.Shipments
@@ -131,7 +143,11 @@ namespace LogiTrack.WebApi.Controllers
                     customerName = s.Customer != null ? s.Customer.Name : null,
                     vehicleId = s.VehicleId,
                     vehiclePlate = s.Vehicle != null ? s.Vehicle.PlateNumber : null,
-                    estimatedPrice = Math.Round(_options.BasePricePerKm * s.DistanceKm + _options.WeightPricePerKg * s.WeightKg, 2),
+                    estimatedPrice = Math.Round(
+                        _options.BasePricePerKm * s.DistanceKm
+                        + _options.WeightPricePerKg * s.WeightKg,
+                        2
+                    ),
                     currency = _options.Currency
                 })
                 .ToListAsync();
@@ -140,6 +156,7 @@ namespace LogiTrack.WebApi.Controllers
         }
 
         [HttpPost]
+        [Authorize(Roles = "Admin")]
         [ProducesResponseType(StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> Create([FromBody] CreateShipmentDto request)
@@ -149,7 +166,11 @@ namespace LogiTrack.WebApi.Controllers
             if (request.DistanceKm <= 0)
                 return BadRequest("DistanceKm must be greater than 0.");
 
-            var defaultStatus = Enum.TryParse<ShipmentStatus>(_options.DefaultShipmentStatus, true, out var parsedStatus)
+            var defaultStatus = Enum.TryParse<ShipmentStatus>(
+                _options.DefaultShipmentStatus,
+                true,
+                out var parsedStatus
+            )
                 ? parsedStatus
                 : ShipmentStatus.Planned;
 
@@ -168,26 +189,38 @@ namespace LogiTrack.WebApi.Controllers
             await _db.SaveChangesAsync();
 
             var etaHours = _delivery.Estimate(entity.DistanceKm);
-            var estimatedPrice = Math.Round(_options.BasePricePerKm * entity.DistanceKm + _options.WeightPricePerKg * entity.WeightKg, 2);
+            var estimatedPrice = Math.Round(
+                _options.BasePricePerKm * entity.DistanceKm
+                + _options.WeightPricePerKg * entity.WeightKg,
+                2
+            );
 
-            return CreatedAtAction(nameof(GetById), new { id = entity.Id }, new
-            {
-                id = entity.Id,
-                entity.Reference,
-                entity.Status,
-                distanceKm = entity.DistanceKm,
-                weightKg = entity.WeightKg,
-                createdUtc = entity.CreatedUtc,
-                customerId = entity.CustomerId,
-                vehicleId = entity.VehicleId,
-                estimatedTimeHours = Math.Round(etaHours, 2),
-                estimatedArrival = DateTime.Now.AddHours(etaHours).ToString("yyyy-MM-dd HH:mm"),
-                estimatedPrice,
-                currency = _options.Currency
-            });
+            return CreatedAtAction(
+                nameof(GetById),
+                new { id = entity.Id },
+                new
+                {
+                    id = entity.Id,
+                    entity.Reference,
+                    entity.Status,
+                    distanceKm = entity.DistanceKm,
+                    weightKg = entity.WeightKg,
+                    createdUtc = entity.CreatedUtc,
+                    customerId = entity.CustomerId,
+                    vehicleId = entity.VehicleId,
+                    estimatedTimeHours = Math.Round(etaHours, 2),
+                    estimatedArrival = DateTime
+                        .Now
+                        .AddHours(etaHours)
+                        .ToString("yyyy-MM-dd HH:mm"),
+                    estimatedPrice,
+                    currency = _options.Currency
+                }
+            );
         }
 
         [HttpPut("{id:int}")]
+        [Authorize(Roles = "Admin")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -200,7 +233,8 @@ namespace LogiTrack.WebApi.Controllers
                 return BadRequest("DistanceKm must be greater than 0.");
 
             var entity = await _db.Shipments.FirstOrDefaultAsync(s => s.Id == id);
-            if (entity == null) return NotFound($"Shipment with id {id} not found.");
+            if (entity == null)
+                return NotFound($"Shipment with id {id} not found.");
 
             entity.Reference = request.Reference.Trim();
             entity.DistanceKm = request.DistanceKm;
@@ -213,6 +247,7 @@ namespace LogiTrack.WebApi.Controllers
         }
 
         [HttpDelete("{id:int}")]
+        [Authorize(Roles = "Admin")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -221,7 +256,8 @@ namespace LogiTrack.WebApi.Controllers
             if (id <= 0) return BadRequest("Id must be greater than 0.");
 
             var entity = await _db.Shipments.FirstOrDefaultAsync(s => s.Id == id);
-            if (entity == null) return NotFound($"Shipment with id {id} not found.");
+            if (entity == null)
+                return NotFound($"Shipment with id {id} not found.");
 
             _db.Shipments.Remove(entity);
             await _db.SaveChangesAsync();
@@ -229,6 +265,7 @@ namespace LogiTrack.WebApi.Controllers
         }
 
         [HttpGet("export")]
+        [Authorize(Roles = "Admin")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public IActionResult Export(
