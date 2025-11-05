@@ -1,15 +1,16 @@
 import { Routes, Route, Navigate } from "react-router-dom";
+import Navbar from "./components/Navbar";
 import ShipmentsForm from "./components/ShipmentsForm";
 import ProtectedRoute from "./ProtectedRoute";
-import LoginPage from "./pages/Loginpage";
+import LoginPage from "./pages/LoginPage";
+import AdminPage from "./pages/AdminPage";
+import { isAdmin } from "./auth";
 import "./App.css";
 
 export default function App() {
   return (
-    <div
-      style={{ maxWidth: 1100, margin: "2rem auto", fontFamily: "system-ui" }}
-    >
-      <h1>LogiTrack</h1>
+    <div className="container">
+      <Navbar />
 
       <Routes>
         <Route
@@ -17,6 +18,15 @@ export default function App() {
           element={
             <ProtectedRoute>
               <ShipmentsForm />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/admin"
+          element={
+            <ProtectedRoute>
+              {isAdmin() ? <AdminPage /> : <Navigate to="/" replace />}
             </ProtectedRoute>
           }
         />

@@ -1,18 +1,13 @@
 import { useEffect, useState } from "react";
-import {
-  getCustomers,
-  createCustomer,
-  updateCustomer,
-  deleteCustomer,
-} from "../api";
+import { getDrivers, createDriver, updateDriver, deleteDriver } from "../api";
 import { isAdmin } from "../auth";
 
-export default function CustomersForm() {
+export default function DriversForm() {
   const admin = isAdmin();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  const initialForm = { name: "", email: "", phone: "", address: "" };
+  const initialForm = { fullName: "", phone: "" };
   const [form, setForm] = useState(initialForm);
   const [editingId, setEditingId] = useState(null);
 
@@ -37,7 +32,7 @@ export default function CustomersForm() {
 
   const refresh = () =>
     run(
-      () => getCustomers(),
+      () => getDrivers(),
       (data) => setItems(data)
     );
 
@@ -55,10 +50,8 @@ export default function CustomersForm() {
   const openEdit = (row) => {
     setEditingId(row.id);
     setForm({
-      name: row.name ?? "",
-      email: row.email ?? "",
+      fullName: row.fullName ?? "",
       phone: row.phone ?? "",
-      address: row.address ?? "",
     });
     setShowModal(true);
   };
@@ -70,24 +63,24 @@ export default function CustomersForm() {
   };
 
   const submit = () => {
-    if (!form.name.trim() || !form.email.trim()) {
-      setError("Name and Email are required");
+    if (!form.fullName.trim()) {
+      setError("Full name is required");
       return;
     }
     if (!editingId) {
       run(
-        () => createCustomer(form),
+        () => createDriver(form),
         () => {
-          setNote("Customer created");
+          setNote("Driver created");
           closeModal();
           refresh();
         }
       );
     } else {
       run(
-        () => updateCustomer(editingId, form),
+        () => updateDriver(editingId, form),
         () => {
-          setNote("Customer updated");
+          setNote("Driver updated");
           closeModal();
           refresh();
         }
@@ -96,11 +89,11 @@ export default function CustomersForm() {
   };
 
   const remove = (id) => {
-    if (!confirm(`Delete customer #${id}?`)) return;
+    if (!confirm(`Delete driver #${id}?`)) return;
     run(
-      () => deleteCustomer(id),
+      () => deleteDriver(id),
       () => {
-        setNote("Customer deleted");
+        setNote("Driver deleted");
         refresh();
       }
     );
@@ -116,7 +109,7 @@ export default function CustomersForm() {
               onClick={openCreate}
               disabled={loading}
             >
-              Add customer
+              Add driver
             </button>
           )}
         </div>
@@ -131,17 +124,15 @@ export default function CustomersForm() {
             <thead>
               <tr>
                 <th style={{ width: 70 }}>ID</th>
-                <th>Name</th>
-                <th>Email</th>
-                <th style={{ width: 140 }}>Phone</th>
-                <th>Address</th>
+                <th>Full name</th>
+                <th style={{ width: 160 }}>Phone</th>
                 <th style={{ width: 140 }}></th>
               </tr>
             </thead>
             <tbody>
               {items.length === 0 && (
                 <tr>
-                  <td colSpan={6} style={{ textAlign: "center" }}>
+                  <td colSpan={4} style={{ textAlign: "center" }}>
                     {loading ? "Loading…" : "No data"}
                   </td>
                 </tr>
@@ -149,10 +140,8 @@ export default function CustomersForm() {
               {items.map((row) => (
                 <tr key={row.id}>
                   <td>{row.id}</td>
-                  <td>{row.name}</td>
-                  <td>{row.email}</td>
+                  <td>{row.fullName}</td>
                   <td>{row.phone || "-"}</td>
-                  <td>{row.address || "-"}</td>
                   <td style={{ textAlign: "right" }}>
                     {admin && (
                       <>
@@ -185,23 +174,15 @@ export default function CustomersForm() {
         <div className="modal-backdrop" onClick={closeModal}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <h3 style={{ marginBottom: 12 }}>
-              {editingId ? `Edit #${editingId}` : "Add customer"}
+              {editingId ? `Edit #${editingId}` : "Add driver"}
             </h3>
             <div className="controls" style={{ marginTop: 12 }}>
               <input
                 className="input"
-                placeholder="Name"
-                value={form.name}
+                placeholder="Full name"
+                value={form.fullName}
                 onChange={(e) =>
-                  setForm((f) => ({ ...f, name: e.target.value }))
-                }
-              />
-              <input
-                className="input"
-                placeholder="Email"
-                value={form.email}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, email: e.target.value }))
+                  setForm((f) => ({ ...f, fullName: e.target.value }))
                 }
               />
               <input
@@ -210,14 +191,6 @@ export default function CustomersForm() {
                 value={form.phone}
                 onChange={(e) =>
                   setForm((f) => ({ ...f, phone: e.target.value }))
-                }
-              />
-              <input
-                className="input"
-                placeholder="Address"
-                value={form.address}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, address: e.target.value }))
                 }
               />
             </div>

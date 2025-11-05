@@ -8,6 +8,7 @@ import {
   getCustomers,
   getVehicles,
 } from "../api";
+import { isAdmin } from "../auth";
 
 const statuses = ["Planned", "InTransit", "Delivered", "Cancelled"];
 
@@ -33,6 +34,8 @@ export default function ShipmentsForm() {
 
   const [error, setError] = useState(null);
   const [note, setNote] = useState(null);
+
+  const admin = isAdmin();
 
   const run = async (fn, after) => {
     setError(null);
@@ -80,6 +83,7 @@ export default function ShipmentsForm() {
   }, [vehicles]);
 
   const handleCreate = () => {
+    if (!admin) return;
     if (!form.reference || Number(form.distanceKm) <= 0) {
       setError("Reference required and DistanceKm must be > 0");
       return;
@@ -106,6 +110,7 @@ export default function ShipmentsForm() {
   };
 
   const startEdit = (row) => {
+    if (!admin) return;
     setEditingId(row.id);
     setForm({
       reference: row.reference ?? "",
@@ -117,7 +122,7 @@ export default function ShipmentsForm() {
   };
 
   const handleUpdate = () => {
-    if (editingId == null) return;
+    if (!admin || editingId == null) return;
     if (!form.reference || Number(form.distanceKm) <= 0) {
       setError("Reference required and DistanceKm must be > 0");
       return;
@@ -145,6 +150,7 @@ export default function ShipmentsForm() {
   };
 
   const handleDelete = (id) => {
+    if (!admin) return;
     if (!confirm(`Delete shipment #${id}?`)) return;
     run(
       () => deleteShipment(id),
@@ -172,101 +178,101 @@ export default function ShipmentsForm() {
       {error && <div className="alert danger">{error}</div>}
       {note && <div className="alert success">{note}</div>}
 
-      {/* Create / Edit */}
-      <div className="row">
-        <h3>{editingId ? `Edit #${editingId}` : "Create"}</h3>
-        <div className="controls grid-2">
-          <input
-            className="input"
-            placeholder="Reference"
-            value={form.reference}
-            onChange={(e) =>
-              setForm((f) => ({ ...f, reference: e.target.value }))
-            }
-          />
-          <select
-            className="input"
-            value={form.customerId}
-            onChange={(e) =>
-              setForm((f) => ({ ...f, customerId: e.target.value }))
-            }
-          >
-            <option value="">Select customer…</option>
-            {customers.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
+      {admin && (
+        <div className="row">
+          <h3>{editingId ? `Edit #${editingId}` : "Create"}</h3>
+          <div className="controls grid-2">
+            <input
+              className="input"
+              placeholder="Reference"
+              value={form.reference}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, reference: e.target.value }))
+              }
+            />
+            <select
+              className="input"
+              value={form.customerId}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, customerId: e.target.value }))
+              }
+            >
+              <option value="">Select customer…</option>
+              {customers.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
 
-          <input
-            className="input"
-            placeholder="DistanceKm"
-            type="number"
-            value={form.distanceKm}
-            onChange={(e) =>
-              setForm((f) => ({ ...f, distanceKm: e.target.value }))
-            }
-          />
-          <select
-            className="input"
-            value={form.vehicleId}
-            onChange={(e) =>
-              setForm((f) => ({ ...f, vehicleId: e.target.value }))
-            }
-          >
-            <option value="">Select vehicle…</option>
-            {vehicles.map((v) => (
-              <option key={v.id} value={v.id}>
-                {v.plateNumber} — {v.model}
-              </option>
-            ))}
-          </select>
+            <input
+              className="input"
+              placeholder="DistanceKm"
+              type="number"
+              value={form.distanceKm}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, distanceKm: e.target.value }))
+              }
+            />
+            <select
+              className="input"
+              value={form.vehicleId}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, vehicleId: e.target.value }))
+              }
+            >
+              <option value="">Select vehicle…</option>
+              {vehicles.map((v) => (
+                <option key={v.id} value={v.id}>
+                  {v.plateNumber} — {v.model}
+                </option>
+              ))}
+            </select>
 
-          <input
-            className="input"
-            placeholder="WeightKg"
-            type="number"
-            value={form.weightKg}
-            onChange={(e) =>
-              setForm((f) => ({ ...f, weightKg: e.target.value }))
-            }
-          />
+            <input
+              className="input"
+              placeholder="WeightKg"
+              type="number"
+              value={form.weightKg}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, weightKg: e.target.value }))
+              }
+            />
 
-          <div className="inline-actions">
-            {!editingId ? (
-              <button
-                className="btn primary"
-                onClick={handleCreate}
-                disabled={loading}
-              >
-                Create
-              </button>
-            ) : (
-              <>
+            <div className="inline-actions">
+              {!editingId ? (
                 <button
                   className="btn primary"
-                  onClick={handleUpdate}
+                  onClick={handleCreate}
                   disabled={loading}
                 >
-                  Save
+                  Create
                 </button>
-                <button
-                  className="btn"
-                  onClick={() => {
-                    setEditingId(null);
-                    setForm(initialForm);
-                  }}
-                >
-                  Cancel
-                </button>
-              </>
-            )}
+              ) : (
+                <>
+                  <button
+                    className="btn primary"
+                    onClick={handleUpdate}
+                    disabled={loading}
+                  >
+                    Save
+                  </button>
+                  <button
+                    className="btn"
+                    onClick={() => {
+                      setEditingId(null);
+                      setForm(initialForm);
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* Search */}
       <div className="row">
         <h3>Search</h3>
         <div className="controls">
@@ -305,7 +311,6 @@ export default function ShipmentsForm() {
         </div>
       </div>
 
-      {/* Table */}
       <div className="row">
         <h3>List</h3>
         <div className="table-wrap">
@@ -320,14 +325,14 @@ export default function ShipmentsForm() {
                 <th>DistanceKm</th>
                 <th>WeightKg</th>
                 <th>CreatedUtc</th>
-                <th></th>
+                {admin && <th></th>}
               </tr>
             </thead>
             <tbody>
               {items.length === 0 && (
                 <tr>
                   <td
-                    colSpan={9}
+                    colSpan={admin ? 9 : 8}
                     style={{ textAlign: "center", color: "#6b7280" }}
                   >
                     {loading ? "Loading…" : "No data"}
@@ -349,23 +354,25 @@ export default function ShipmentsForm() {
                     <td>{row.distanceKm}</td>
                     <td>{row.weightKg}</td>
                     <td>{new Date(row.createdUtc).toLocaleString()}</td>
-                    <td style={{ textAlign: "right" }}>
-                      <button
-                        className="btn"
-                        onClick={() => startEdit(row)}
-                        disabled={loading}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        className="btn danger"
-                        onClick={() => handleDelete(row.id)}
-                        disabled={loading}
-                        style={{ marginLeft: 8 }}
-                      >
-                        Delete
-                      </button>
-                    </td>
+                    {admin && (
+                      <td style={{ textAlign: "right" }}>
+                        <button
+                          className="btn"
+                          onClick={() => startEdit(row)}
+                          disabled={loading}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          className="btn danger"
+                          onClick={() => handleDelete(row.id)}
+                          disabled={loading}
+                          style={{ marginLeft: 8 }}
+                        >
+                          Delete
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 );
               })}

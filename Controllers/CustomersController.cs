@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using LogiTrack.WebApi.Data;
 using LogiTrack.WebApi.Models;
-using System.ComponentModel.DataAnnotations;
+using LogiTrack.WebApi.Contracts.Customers;
 
 namespace LogiTrack.WebApi.Controllers
 {
@@ -20,30 +20,6 @@ namespace LogiTrack.WebApi.Controllers
             _db = db;
         }
 
-        public class CustomerDto
-        {
-            public int Id { get; set; }
-            public string Name { get; set; } = default!;
-            public string Email { get; set; } = default!;
-            public string? Phone { get; set; }
-            public string? Address { get; set; }
-        }
-
-        public class UpsertCustomerDto
-        {
-            [Required, MaxLength(200)]
-            public string Name { get; set; } = default!;
-
-            [Required, MaxLength(200), EmailAddress]
-            public string Email { get; set; } = default!;
-
-            [MaxLength(50)]
-            public string? Phone { get; set; }
-
-            [MaxLength(300)]
-            public string? Address { get; set; }
-        }
-
         [HttpGet]
         [ProducesResponseType(StatusCodes.Status200OK)]
         public async Task<IActionResult> GetAll()
@@ -51,7 +27,7 @@ namespace LogiTrack.WebApi.Controllers
             var items = await _db.Customers
                 .AsNoTracking()
                 .OrderBy(c => c.Id)
-                .Select(c => new CustomerDto
+                .Select(c => new CustomerResponseDto
                 {
                     Id = c.Id,
                     Name = c.Name,
@@ -75,7 +51,7 @@ namespace LogiTrack.WebApi.Controllers
             var item = await _db.Customers
                 .AsNoTracking()
                 .Where(c => c.Id == id)
-                .Select(c => new CustomerDto
+                .Select(c => new CustomerResponseDto
                 {
                     Id = c.Id,
                     Name = c.Name,
@@ -86,7 +62,6 @@ namespace LogiTrack.WebApi.Controllers
                 .FirstOrDefaultAsync();
 
             if (item == null) return NotFound($"Customer with id {id} not found.");
-
             return Ok(item);
         }
 
@@ -94,10 +69,8 @@ namespace LogiTrack.WebApi.Controllers
         [Authorize(Roles = "Admin")]
         [ProducesResponseType(StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        public async Task<IActionResult> Create([FromBody] UpsertCustomerDto dto)
+        public async Task<IActionResult> Create([FromBody] CustomerCreateUpdateDto dto)
         {
-            if (!ModelState.IsValid) return BadRequest(ModelState);
-
             var entity = new Customer
             {
                 Name = dto.Name.Trim(),
@@ -109,14 +82,16 @@ namespace LogiTrack.WebApi.Controllers
             _db.Customers.Add(entity);
             await _db.SaveChangesAsync();
 
-            return CreatedAtAction(nameof(GetById), new { id = entity.Id }, new CustomerDto
+            var result = new CustomerResponseDto
             {
                 Id = entity.Id,
                 Name = entity.Name,
                 Email = entity.Email,
                 Phone = entity.Phone,
                 Address = entity.Address
-            });
+            };
+
+            return CreatedAtAction(nameof(GetById), new { id = entity.Id }, result);
         }
 
         [HttpPut("{id:int}")]
@@ -124,10 +99,9 @@ namespace LogiTrack.WebApi.Controllers
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> Update([FromRoute] int id, [FromBody] UpsertCustomerDto dto)
+        public async Task<IActionResult> Update([FromRoute] int id, [FromBody] CustomerCreateUpdateDto dto)
         {
             if (id <= 0) return BadRequest("Id must be greater than 0.");
-            if (!ModelState.IsValid) return BadRequest(ModelState);
 
             var entity = await _db.Customers.FirstOrDefaultAsync(c => c.Id == id);
             if (entity == null) return NotFound($"Customer with id {id} not found.");

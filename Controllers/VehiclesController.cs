@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using LogiTrack.WebApi.Data;
 using LogiTrack.WebApi.Models;
-using System.ComponentModel.DataAnnotations;
+using LogiTrack.WebApi.Contracts.Vehicles;
 
 namespace LogiTrack.WebApi.Controllers
 {
@@ -20,29 +20,6 @@ namespace LogiTrack.WebApi.Controllers
             _db = db;
         }
 
-        public class VehicleDto
-        {
-            public int Id { get; set; }
-            public string PlateNumber { get; set; } = default!;
-            public string Model { get; set; } = default!;
-            public double CapacityKg { get; set; }
-            public int? DriverId { get; set; }
-            public string? DriverName { get; set; }
-        }
-
-        public class UpsertVehicleDto
-        {
-            [Required, MaxLength(50)]
-            public string PlateNumber { get; set; } = default!;
-
-            [Required, MaxLength(200)]
-            public string Model { get; set; } = default!;
-
-            public double CapacityKg { get; set; }
-
-            public int? DriverId { get; set; }
-        }
-
         [HttpGet]
         [ProducesResponseType(StatusCodes.Status200OK)]
         public async Task<IActionResult> GetAll()
@@ -51,7 +28,7 @@ namespace LogiTrack.WebApi.Controllers
                 .AsNoTracking()
                 .Include(v => v.Driver)
                 .OrderBy(v => v.Id)
-                .Select(v => new VehicleDto
+                .Select(v => new VehicleResponseDto
                 {
                     Id = v.Id,
                     PlateNumber = v.PlateNumber,
@@ -77,7 +54,7 @@ namespace LogiTrack.WebApi.Controllers
                 .AsNoTracking()
                 .Include(v => v.Driver)
                 .Where(v => v.Id == id)
-                .Select(v => new VehicleDto
+                .Select(v => new VehicleResponseDto
                 {
                     Id = v.Id,
                     PlateNumber = v.PlateNumber,
@@ -89,7 +66,6 @@ namespace LogiTrack.WebApi.Controllers
                 .FirstOrDefaultAsync();
 
             if (item == null) return NotFound($"Vehicle with id {id} not found.");
-
             return Ok(item);
         }
 
@@ -97,7 +73,7 @@ namespace LogiTrack.WebApi.Controllers
         [Authorize(Roles = "Admin")]
         [ProducesResponseType(StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        public async Task<IActionResult> Create([FromBody] UpsertVehicleDto dto)
+        public async Task<IActionResult> Create([FromBody] VehicleCreateUpdateDto dto)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
 
@@ -112,15 +88,26 @@ namespace LogiTrack.WebApi.Controllers
             _db.Vehicles.Add(entity);
             await _db.SaveChangesAsync();
 
-            return CreatedAtAction(nameof(GetById), new { id = entity.Id }, new VehicleDto
+            string? driverName = null;
+            if (entity.DriverId.HasValue)
+            {
+                driverName = await _db.Drivers
+                    .Where(d => d.Id == entity.DriverId.Value)
+                    .Select(d => d.FullName)
+                    .FirstOrDefaultAsync();
+            }
+
+            var result = new VehicleResponseDto
             {
                 Id = entity.Id,
                 PlateNumber = entity.PlateNumber,
                 Model = entity.Model,
                 CapacityKg = entity.CapacityKg,
                 DriverId = entity.DriverId,
-                DriverName = null
-            });
+                DriverName = driverName
+            };
+
+            return CreatedAtAction(nameof(GetById), new { id = entity.Id }, result);
         }
 
         [HttpPut("{id:int}")]
@@ -128,7 +115,7 @@ namespace LogiTrack.WebApi.Controllers
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> Update([FromRoute] int id, [FromBody] UpsertVehicleDto dto)
+        public async Task<IActionResult> Update([FromRoute] int id, [FromBody] VehicleCreateUpdateDto dto)
         {
             if (id <= 0) return BadRequest("Id must be greater than 0.");
             if (!ModelState.IsValid) return BadRequest(ModelState);

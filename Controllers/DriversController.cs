@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using LogiTrack.WebApi.Data;
 using LogiTrack.WebApi.Models;
-using System.ComponentModel.DataAnnotations;
+using LogiTrack.WebApi.Contracts.Drivers;
 
 namespace LogiTrack.WebApi.Controllers
 {
@@ -20,22 +20,6 @@ namespace LogiTrack.WebApi.Controllers
             _db = db;
         }
 
-        public class DriverDto
-        {
-            public int Id { get; set; }
-            public string FullName { get; set; } = default!;
-            public string? Phone { get; set; }
-        }
-
-        public class UpsertDriverDto
-        {
-            [Required, MaxLength(200)]
-            public string FullName { get; set; } = default!;
-
-            [MaxLength(50)]
-            public string? Phone { get; set; }
-        }
-
         [HttpGet]
         [ProducesResponseType(StatusCodes.Status200OK)]
         public async Task<IActionResult> GetAll()
@@ -43,7 +27,7 @@ namespace LogiTrack.WebApi.Controllers
             var items = await _db.Drivers
                 .AsNoTracking()
                 .OrderBy(d => d.Id)
-                .Select(d => new DriverDto
+                .Select(d => new DriverResponseDto
                 {
                     Id = d.Id,
                     FullName = d.FullName,
@@ -65,7 +49,7 @@ namespace LogiTrack.WebApi.Controllers
             var item = await _db.Drivers
                 .AsNoTracking()
                 .Where(d => d.Id == id)
-                .Select(d => new DriverDto
+                .Select(d => new DriverResponseDto
                 {
                     Id = d.Id,
                     FullName = d.FullName,
@@ -74,7 +58,6 @@ namespace LogiTrack.WebApi.Controllers
                 .FirstOrDefaultAsync();
 
             if (item == null) return NotFound($"Driver with id {id} not found.");
-
             return Ok(item);
         }
 
@@ -82,10 +65,8 @@ namespace LogiTrack.WebApi.Controllers
         [Authorize(Roles = "Admin")]
         [ProducesResponseType(StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        public async Task<IActionResult> Create([FromBody] UpsertDriverDto dto)
+        public async Task<IActionResult> Create([FromBody] DriverCreateUpdateDto dto)
         {
-            if (!ModelState.IsValid) return BadRequest(ModelState);
-
             var entity = new Driver
             {
                 FullName = dto.FullName.Trim(),
@@ -95,12 +76,14 @@ namespace LogiTrack.WebApi.Controllers
             _db.Drivers.Add(entity);
             await _db.SaveChangesAsync();
 
-            return CreatedAtAction(nameof(GetById), new { id = entity.Id }, new DriverDto
+            var result = new DriverResponseDto
             {
                 Id = entity.Id,
                 FullName = entity.FullName,
                 Phone = entity.Phone
-            });
+            };
+
+            return CreatedAtAction(nameof(GetById), new { id = entity.Id }, result);
         }
 
         [HttpPut("{id:int}")]
@@ -108,10 +91,9 @@ namespace LogiTrack.WebApi.Controllers
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> Update([FromRoute] int id, [FromBody] UpsertDriverDto dto)
+        public async Task<IActionResult> Update([FromRoute] int id, [FromBody] DriverCreateUpdateDto dto)
         {
             if (id <= 0) return BadRequest("Id must be greater than 0.");
-            if (!ModelState.IsValid) return BadRequest(ModelState);
 
             var entity = await _db.Drivers.FirstOrDefaultAsync(d => d.Id == id);
             if (entity == null) return NotFound($"Driver with id {id} not found.");
