@@ -6,9 +6,6 @@ export default function AdminPage() {
   return (
     <div className="container">
       <h2 style={{ marginBottom: "0.5rem" }}>Admin panel</h2>
-      <p className="muted" style={{ marginTop: 0 }}>
-        Manage Customers, Drivers, and Vehicles
-      </p>
 
       <section className="card wide">
         <h3>Customers</h3>

@@ -18,7 +18,7 @@ export default function Navbar() {
       </Link>
 
       <nav className="navbar-actions">
-        {admin && <Link to="/admin">Admin</Link>}
+        {admin && <Link to="/admin">Admin page</Link>}
         {isLoggedIn() && (
           <>
             <span className="navbar-username">{user}</span>

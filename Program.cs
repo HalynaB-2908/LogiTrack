@@ -1,29 +1,33 @@
-using System.Text;
-using System.Text.Json.Serialization;
 using LogiTrack.WebApi.Data;
 using LogiTrack.WebApi.Models;
 using LogiTrack.WebApi.Options;
-using LogiTrack.WebApi.Repositories.Shipments;
-using LogiTrack.WebApi.Services;
+using LogiTrack.WebApi.Repositories;            
+using LogiTrack.WebApi.Repositories.EF;         
+using LogiTrack.WebApi.Repositories.File;
+using LogiTrack.WebApi.Seed;
+using LogiTrack.WebApi.Services;                 
+using LogiTrack.WebApi.Services.Abstractions;    
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
-using LogiTrack.WebApi.Seed;
+using System.Text;
+using System.Text.Json.Serialization;
 
 namespace LogiTrack.WebApi
 {
     public class Program
     {
-        public static async Task Main(string[] args)   
+        public static async Task Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);
 
             builder.Services
                 .AddControllers()
                 .AddJsonOptions(o => o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
+
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen(c =>
             {
@@ -92,22 +96,25 @@ namespace LogiTrack.WebApi
             builder.Services.AddScoped<IDeliveryTimeService, DeliveryTimeService>();
             builder.Services.AddScoped<ITokenService, TokenService>();
 
+            builder.Services.AddScoped<IShipmentsRepository, ShipmentsRepository>();
+            /*
             builder.Services.AddSingleton<IShipmentsRepository>(sp =>
             {
                 var env = sp.GetRequiredService<IWebHostEnvironment>();
                 var storage = sp.GetRequiredService<IOptions<StorageOptions>>().Value;
 
-                if (storage.UseFileStorage)
-                {
-                    var fullPath = Path.IsPathRooted(storage.ShipmentsFilePath)
-                        ? storage.ShipmentsFilePath
-                        : Path.Combine(env.ContentRootPath, storage.ShipmentsFilePath);
+                // вибір шляху до JSON
+                var fullPath = Path.IsPathRooted(storage.ShipmentsFilePath)
+                    ? storage.ShipmentsFilePath
+                    : Path.Combine(env.ContentRootPath, storage.ShipmentsFilePath);
 
-                    return new FileShipmentsRepository(fullPath);
-                }
-
-                return new InMemoryShipmentsRepository();
+                return new FileShipmentsRepository(fullPath);
             });
+            */
+            builder.Services.AddScoped<ICustomersRepository, CustomersRepository>();
+            builder.Services.AddScoped<IDriversRepository, DriversRepository>();
+            builder.Services.AddScoped<IVehiclesRepository, VehiclesRepository>();
+            builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
             var app = builder.Build();
 
@@ -130,7 +137,7 @@ namespace LogiTrack.WebApi
 
             app.MapControllers();
 
-            await app.RunAsync(); 
+            await app.RunAsync();
         }
     }
 }

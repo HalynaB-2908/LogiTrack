@@ -2,6 +2,7 @@
 using System.Security.Claims;
 using System.Text;
 using LogiTrack.WebApi.Models;
+using LogiTrack.WebApi.Services.Abstractions;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.IdentityModel.Tokens;
 

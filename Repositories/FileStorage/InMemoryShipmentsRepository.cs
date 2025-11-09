@@ -1,6 +1,7 @@
 ﻿using LogiTrack.WebApi.Models;
+using LogiTrack.WebApi.Repositories.Shipments;
 
-namespace LogiTrack.WebApi.Repositories.Shipments
+namespace LogiTrack.WebApi.Repositories.File
 {
     public class InMemoryShipmentsRepository : IShipmentsRepository
     {

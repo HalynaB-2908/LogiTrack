@@ -2,8 +2,10 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using LogiTrack.WebApi.Models;
+using LogiTrack.WebApi.Services.Abstractions;
+using IO = System.IO;
 
-namespace LogiTrack.WebApi.Repositories.Shipments
+namespace LogiTrack.WebApi.Repositories.File
 {
     public class FileShipmentsRepository : IShipmentsRepository
     {
@@ -13,23 +15,17 @@ namespace LogiTrack.WebApi.Repositories.Shipments
         private static readonly JsonSerializerOptions _json = new()
         {
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            WriteIndented = true
+            WriteIndented = true,
+            Converters = { new JsonStringEnumConverter() }
         };
-
-        static FileShipmentsRepository()
-        {
-            _json.Converters.Add(new JsonStringEnumConverter());
-        }
 
         public FileShipmentsRepository(string filePath)
         {
             _filePath = filePath;
         }
 
-        public async Task<IEnumerable<Shipment>> GetAllAsync()
-        {
-            return await ReadAllAsync();
-        }
+        public async Task<IEnumerable<Shipment>> GetAllAsync() =>
+            await ReadAllAsync();
 
         public async Task<Shipment?> GetByIdAsync(int id)
         {
@@ -75,11 +71,27 @@ namespace LogiTrack.WebApi.Repositories.Shipments
             }
         }
 
+        public async Task<bool> DeleteAsync(int id)
+        {
+            await _lock.WaitAsync();
+            try
+            {
+                var items = await ReadAllAsync();
+                var removed = items.RemoveAll(s => s.Id == id) > 0;
+                if (removed) await WriteAllAsync(items);
+                return removed;
+            }
+            finally
+            {
+                _lock.Release();
+            }
+        }
+
         private async Task<List<Shipment>> ReadAllAsync()
         {
             EnsureFileExists();
 
-            using var fs = File.Open(_filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+            using var fs = IO.File.Open(_filePath, IO.FileMode.Open, IO.FileAccess.Read, IO.FileShare.Read);
             if (fs.Length == 0) return new List<Shipment>();
 
             var list = await JsonSerializer.DeserializeAsync<List<Shipment>>(fs, _json);
@@ -88,16 +100,18 @@ namespace LogiTrack.WebApi.Repositories.Shipments
 
         private async Task WriteAllAsync(List<Shipment> items)
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(_filePath)!);
+            var dir = IO.Path.GetDirectoryName(_filePath)!;
+            IO.Directory.CreateDirectory(dir);
+
             var json = JsonSerializer.Serialize(items, _json);
-            await File.WriteAllTextAsync(_filePath, json, Encoding.UTF8);
+            await IO.File.WriteAllTextAsync(_filePath, json, Encoding.UTF8);
         }
 
         private void EnsureFileExists()
         {
-            var dir = Path.GetDirectoryName(_filePath)!;
-            if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
-            if (!File.Exists(_filePath)) File.WriteAllText(_filePath, "[]", Encoding.UTF8);
+            var dir = IO.Path.GetDirectoryName(_filePath)!;
+            if (!IO.Directory.Exists(dir)) IO.Directory.CreateDirectory(dir);
+            if (!IO.File.Exists(_filePath)) IO.File.WriteAllText(_filePath, "[]", Encoding.UTF8);
         }
     }
 }

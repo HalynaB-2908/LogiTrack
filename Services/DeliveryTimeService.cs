@@ -1,4 +1,5 @@
 ﻿using LogiTrack.WebApi.Options;
+using LogiTrack.WebApi.Services.Abstractions;
 using Microsoft.Extensions.Options;
 
 namespace LogiTrack.WebApi.Services

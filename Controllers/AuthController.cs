@@ -3,8 +3,8 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using LogiTrack.WebApi.Contracts.Auth;
 using LogiTrack.WebApi.Models;
-using LogiTrack.WebApi.Services;
 using System.IdentityModel.Tokens.Jwt;
+using LogiTrack.WebApi.Services.Abstractions;
 
 namespace LogiTrack.WebApi.Controllers
 {

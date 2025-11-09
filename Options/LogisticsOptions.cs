@@ -6,7 +6,8 @@
         public string? DefaultShipmentStatus { get; set; }
         public double BasePricePerKm { get; set; }
         public double WeightPricePerKg { get; set; }
-        public string? Currency { get; set; }
+        public string? Currency { get; set; } = "EUR";
         public double AverageSpeedKmH { get; set; }
+        public string Mode { get; set; } = "Standard";
     }
 }
