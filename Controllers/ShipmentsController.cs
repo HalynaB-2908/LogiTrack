@@ -5,6 +5,12 @@ using LogiTrack.WebApi.Contracts.Shipments;
 using LogiTrack.WebApi.Models;
 using LogiTrack.WebApi.Options;
 using LogiTrack.WebApi.Services.Abstractions;
+using LogiTrack.WebApi.Services.Factories;
+using System;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using IO = System.IO;
 
 namespace LogiTrack.WebApi.Controllers
 {
@@ -15,64 +21,85 @@ namespace LogiTrack.WebApi.Controllers
     public class ShipmentsController : ControllerBase
     {
         private readonly LogisticsOptions _options;
-        private readonly IDeliveryTimeService _delivery;
-        private readonly IShipmentsRepository _shipments;
         private readonly IUnitOfWork _uow;
+        private readonly DeliveryTimeServiceFactory _factory;
 
         public ShipmentsController(
             IOptions<LogisticsOptions> options,
-            IDeliveryTimeService delivery,
-            IShipmentsRepository shipments,
-            IUnitOfWork uow)
+            IUnitOfWork uow,
+            DeliveryTimeServiceFactory factory)
         {
             _options = options.Value;
-            _delivery = delivery;
-            _shipments = shipments;
             _uow = uow;
+            _factory = factory;
         }
 
-        // GET: api/v1/shipments
+        // GET ALL
         [HttpGet]
         [ProducesResponseType(StatusCodes.Status200OK)]
         public async Task<IActionResult> GetAll(CancellationToken ct)
         {
-            var items = await _shipments.GetAllAsync(ct);
+            var entities = await _uow.Shipments.GetAllAsync(ct);
 
-            var result = items
+            var items = entities
                 .OrderBy(s => s.Id)
-                .Select(s => new ShipmentResponseDto
+                .Select(s =>
                 {
-                    Id = s.Id,
-                    Reference = s.Reference,
-                    Status = s.Status,
-                    DistanceKm = s.DistanceKm,
-                    WeightKg = s.WeightKg,
-                    CreatedUtc = s.CreatedUtc,
-                    CustomerId = s.CustomerId,
-                    CustomerName = s.Customer?.Name,
-                    VehicleId = s.VehicleId,
-                    VehiclePlate = s.Vehicle?.PlateNumber,
-                    EstimatedPrice = Math.Round(
-                        _options.BasePricePerKm * s.DistanceKm +
-                        _options.WeightPricePerKg * s.WeightKg, 2),
-                    Currency = _options.Currency ?? "USD"
+                    double price = s.Price.HasValue
+                        ? (double)s.Price.Value
+                        : _options.BasePricePerKm * s.DistanceKm +
+                          _options.WeightPricePerKg * s.WeightKg;
+
+                    var service = _factory.CreateService("standard");
+                    double hours = s.DistanceKm > 0
+                        ? service.Estimate(s.DistanceKm)
+                        : 0;
+
+                    return new ShipmentResponseDto
+                    {
+                        Id = s.Id,
+                        Reference = s.Reference,
+                        Status = s.Status,
+                        DistanceKm = s.DistanceKm,
+                        WeightKg = s.WeightKg,
+                        CreatedUtc = s.CreatedUtc,
+                        CustomerId = s.CustomerId,
+                        CustomerName = s.Customer != null ? s.Customer.Name : null,
+                        VehicleId = s.VehicleId,
+                        VehiclePlate = s.Vehicle != null ? s.Vehicle.PlateNumber : null,
+                        EstimatedPrice = Math.Round(price, 2),
+                        EstimatedTimeHours = Math.Round(hours, 2),
+                        Currency = _options.Currency ?? "EUR"
+                    };
                 })
                 .ToList();
 
-            return Ok(result);
+            return Ok(items);
         }
 
-        // GET: api/v1/shipments/5
+        // GET BY ID
         [HttpGet("{id:int}")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> GetById([FromRoute] int id, CancellationToken ct)
         {
-            if (id <= 0) return BadRequest("Id must be greater than 0.");
+            if (id <= 0)
+                return BadRequest("Id must be greater than 0.");
 
-            var s = await _shipments.GetByIdAsync(id, ct);
-            if (s == null) return NotFound($"Shipment with id {id} not found.");
+            var s = await _uow.Shipments.GetByIdAsync(id, ct);
+            if (s == null)
+                return NotFound($"Shipment with id {id} not found.");
+
+            double price = s.Price.HasValue
+                ? (double)s.Price.Value
+                : _options.BasePricePerKm * s.DistanceKm +
+                  _options.WeightPricePerKg * s.WeightKg;
+
+            var service = _factory.CreateService("standard");
+            double hours = s.DistanceKm > 0
+                ? service.Estimate(s.DistanceKm)
+                : 0;
 
             var dto = new ShipmentResponseDto
             {
@@ -83,95 +110,124 @@ namespace LogiTrack.WebApi.Controllers
                 WeightKg = s.WeightKg,
                 CreatedUtc = s.CreatedUtc,
                 CustomerId = s.CustomerId,
-                CustomerName = s.Customer?.Name,
+                CustomerName = s.Customer != null ? s.Customer.Name : null,
                 VehicleId = s.VehicleId,
-                VehiclePlate = s.Vehicle?.PlateNumber,
-                EstimatedPrice = Math.Round(
-                    _options.BasePricePerKm * s.DistanceKm +
-                    _options.WeightPricePerKg * s.WeightKg, 2),
-                Currency = _options.Currency ?? "USD"
+                VehiclePlate = s.Vehicle != null ? s.Vehicle.PlateNumber : null,
+                EstimatedPrice = Math.Round(price, 2),
+                EstimatedTimeHours = Math.Round(hours, 2),
+                Currency = _options.Currency ?? "EUR"
             };
 
             return Ok(dto);
         }
 
-        // GET: api/v1/shipments/search?q=REF&status=Planned
+        // SEARCH
         [HttpGet("search")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        public async Task<IActionResult> Search([FromQuery] string? q, [FromQuery] string? status, CancellationToken ct)
+        public async Task<IActionResult> Search(
+            [FromQuery] string? q,
+            [FromQuery] string? status,
+            CancellationToken ct)
         {
-            if (string.IsNullOrWhiteSpace(q) && string.IsNullOrWhiteSpace(status))
-                return BadRequest("At least one search parameter must be provided.");
+            ShipmentStatus? parsedStatus = null;
 
-            ShipmentStatus? statusEnum = null;
             if (!string.IsNullOrWhiteSpace(status))
             {
-                if (Enum.TryParse<ShipmentStatus>(status, true, out var parsed))
-                    statusEnum = parsed;
-                else
-                    return BadRequest($"Unknown status '{status}'. Allowed: {string.Join(", ", Enum.GetNames(typeof(ShipmentStatus)))}");
+                if (!Enum.TryParse(status, true, out ShipmentStatus value))
+                    return BadRequest(
+                        $"Unknown status '{status}'. Allowed: {string.Join(", ", Enum.GetNames(typeof(ShipmentStatus)))}"
+                    );
+
+                parsedStatus = value;
             }
 
-            var items = await _shipments.SearchAsync(q, statusEnum, ct);
+            var entities = await _uow.Shipments.SearchAsync(q, parsedStatus, ct);
 
-            var result = items
+            var items = entities
                 .OrderBy(s => s.Id)
-                .Select(s => new ShipmentResponseDto
+                .Select(s =>
                 {
-                    Id = s.Id,
-                    Reference = s.Reference,
-                    Status = s.Status,
-                    DistanceKm = s.DistanceKm,
-                    WeightKg = s.WeightKg,
-                    CreatedUtc = s.CreatedUtc,
-                    CustomerId = s.CustomerId,
-                    CustomerName = s.Customer?.Name,
-                    VehicleId = s.VehicleId,
-                    VehiclePlate = s.Vehicle?.PlateNumber,
-                    EstimatedPrice = Math.Round(
-                        _options.BasePricePerKm * s.DistanceKm +
-                        _options.WeightPricePerKg * s.WeightKg, 2),
-                    Currency = _options.Currency ?? "USD"
+                    double price = s.Price.HasValue
+                        ? (double)s.Price.Value
+                        : _options.BasePricePerKm * s.DistanceKm +
+                          _options.WeightPricePerKg * s.WeightKg;
+
+                    var service = _factory.CreateService("standard");
+                    double hours = s.DistanceKm > 0
+                        ? service.Estimate(s.DistanceKm)
+                        : 0;
+
+                    return new ShipmentResponseDto
+                    {
+                        Id = s.Id,
+                        Reference = s.Reference,
+                        Status = s.Status,
+                        DistanceKm = s.DistanceKm,
+                        WeightKg = s.WeightKg,
+                        CreatedUtc = s.CreatedUtc,
+                        CustomerId = s.CustomerId,
+                        CustomerName = s.Customer != null ? s.Customer.Name : null,
+                        VehicleId = s.VehicleId,
+                        VehiclePlate = s.Vehicle != null ? s.Vehicle.PlateNumber : null,
+                        EstimatedPrice = Math.Round(price, 2),
+                        EstimatedTimeHours = Math.Round(hours, 2),
+                        Currency = _options.Currency ?? "EUR"
+                    };
                 })
                 .ToList();
 
-            return Ok(result);
+            return Ok(items);
         }
 
-        // POST: api/v1/shipments
+        // CREATE
         [HttpPost]
         [Authorize(Roles = "Admin")]
         [ProducesResponseType(StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        public async Task<IActionResult> Create([FromBody] ShipmentCreateUpdateDto dto, CancellationToken ct)
+        public async Task<IActionResult> Create(
+            [FromBody] ShipmentCreateUpdateDto dto,
+            CancellationToken ct)
         {
             if (dto == null || string.IsNullOrWhiteSpace(dto.Reference))
                 return BadRequest("Reference is required.");
             if (dto.DistanceKm <= 0)
                 return BadRequest("DistanceKm must be greater than 0.");
 
-            var defaultStatus = Enum.TryParse(_options.DefaultShipmentStatus, true, out ShipmentStatus parsedStatus)
-                ? parsedStatus
-                : ShipmentStatus.Planned;
-
             var entity = new Shipment
             {
                 Reference = dto.Reference.Trim(),
-                Status = defaultStatus,
+                Status = ShipmentStatus.Planned,
                 DistanceKm = dto.DistanceKm,
                 WeightKg = dto.WeightKg,
                 CustomerId = dto.CustomerId,
                 VehicleId = dto.VehicleId,
                 CreatedUtc = DateTime.UtcNow
             };
+            var service = _factory.CreateService(dto.DeliveryMode);
+            double hours = service.Estimate(entity.DistanceKm);
 
-            await _shipments.AddAsync(entity, ct);
+            double price =
+                _options.BasePricePerKm * entity.DistanceKm +
+                _options.WeightPricePerKg * entity.WeightKg;
+
+            entity.Price = (decimal)Math.Round(price, 2);
+
+            await _uow.Shipments.AddAsync(entity, ct);
             await _uow.SaveChangesAsync(ct);
 
-            var created = await _shipments.GetByIdAsync(entity.Id, ct);
-            if (created == null) 
-                created = entity;
+            var created = await _uow.Shipments.GetByIdAsync(entity.Id, ct);
+            if (created == null)
+                return StatusCode(StatusCodes.Status500InternalServerError,
+                    "Shipment was created but cannot be loaded.");
+
+            var serviceForResult = _factory.CreateService(dto.DeliveryMode);
+            double hoursResult = serviceForResult.Estimate(created.DistanceKm);
+
+            double resultPrice = created.Price.HasValue
+                ? (double)created.Price.Value
+                : _options.BasePricePerKm * created.DistanceKm +
+                  _options.WeightPricePerKg * created.WeightKg;
 
             var result = new ShipmentResponseDto
             {
@@ -182,34 +238,38 @@ namespace LogiTrack.WebApi.Controllers
                 WeightKg = created.WeightKg,
                 CreatedUtc = created.CreatedUtc,
                 CustomerId = created.CustomerId,
-                CustomerName = created.Customer?.Name,
+                CustomerName = created.Customer != null ? created.Customer.Name : null,
                 VehicleId = created.VehicleId,
-                VehiclePlate = created.Vehicle?.PlateNumber,
-                EstimatedPrice = Math.Round(
-                    _options.BasePricePerKm * created.DistanceKm +
-                    _options.WeightPricePerKg * created.WeightKg, 2),
-                Currency = _options.Currency ?? "USD"
+                VehiclePlate = created.Vehicle != null ? created.Vehicle.PlateNumber : null,
+                EstimatedPrice = Math.Round(resultPrice, 2),
+                EstimatedTimeHours = Math.Round(hoursResult, 2),
+                Currency = _options.Currency ?? "EUR"
             };
 
             return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
         }
 
-        // PUT: api/v1/shipments/5
+        // UPDATE
         [HttpPut("{id:int}")]
         [Authorize(Roles = "Admin")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> Update([FromRoute] int id, [FromBody] ShipmentCreateUpdateDto dto, CancellationToken ct)
+        public async Task<IActionResult> Update(
+            [FromRoute] int id,
+            [FromBody] ShipmentCreateUpdateDto dto,
+            CancellationToken ct)
         {
-            if (id <= 0) return BadRequest("Id must be greater than 0.");
+            if (id <= 0)
+                return BadRequest("Id must be greater than 0.");
             if (dto == null || string.IsNullOrWhiteSpace(dto.Reference))
                 return BadRequest("Reference is required.");
             if (dto.DistanceKm <= 0)
                 return BadRequest("DistanceKm must be greater than 0.");
 
-            var entity = await _shipments.GetByIdAsync(id, ct);
-            if (entity == null) return NotFound($"Shipment with id {id} not found.");
+            var entity = await _uow.Shipments.GetByIdAsync(id, ct);
+            if (entity == null)
+                return NotFound($"Shipment with id {id} not found.");
 
             entity.Reference = dto.Reference.Trim();
             entity.DistanceKm = dto.DistanceKm;
@@ -217,12 +277,19 @@ namespace LogiTrack.WebApi.Controllers
             entity.CustomerId = dto.CustomerId;
             entity.VehicleId = dto.VehicleId;
 
-            _shipments.Update(entity);
+            double price =
+                _options.BasePricePerKm * entity.DistanceKm +
+                _options.WeightPricePerKg * entity.WeightKg;
+
+            entity.Price = (decimal)Math.Round(price, 2);
+
+            _uow.Shipments.Update(entity);
             await _uow.SaveChangesAsync(ct);
+
             return NoContent();
         }
 
-        // DELETE: api/v1/shipments/5
+        // DELETE
         [HttpDelete("{id:int}")]
         [Authorize(Roles = "Admin")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -230,14 +297,37 @@ namespace LogiTrack.WebApi.Controllers
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> Delete([FromRoute] int id, CancellationToken ct)
         {
-            if (id <= 0) return BadRequest("Id must be greater than 0.");
+            if (id <= 0)
+                return BadRequest("Id must be greater than 0.");
 
-            var entity = await _shipments.GetByIdAsync(id, ct);
-            if (entity == null) return NotFound($"Shipment with id {id} not found.");
+            var entity = await _uow.Shipments.GetByIdAsync(id, ct);
+            if (entity == null)
+                return NotFound($"Shipment with id {id} not found.");
 
-            _shipments.Remove(entity);
+            _uow.Shipments.Remove(entity);
             await _uow.SaveChangesAsync(ct);
+
             return NoContent();
+        }
+
+        // EXPORT
+        [HttpGet("export")]
+        [Authorize(Roles = "Admin")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public IActionResult Export(
+            [FromServices] IOptions<StorageOptions> storage,
+            [FromServices] IWebHostEnvironment env)
+        {
+            var path = storage.Value.ShipmentsFilePath;
+            if (!IO.Path.IsPathRooted(path))
+                path = IO.Path.Combine(env.ContentRootPath, path);
+
+            if (!IO.File.Exists(path))
+                return NotFound("Data file not found.");
+
+            var bytes = IO.File.ReadAllBytes(path);
+            return File(bytes, "application/json", "shipments.json");
         }
     }
 }

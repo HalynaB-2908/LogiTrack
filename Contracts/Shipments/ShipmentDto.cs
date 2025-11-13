@@ -9,6 +9,8 @@ namespace LogiTrack.WebApi.Contracts.Shipments
         public double WeightKg { get; set; }
         public int? CustomerId { get; set; }
         public int? VehicleId { get; set; }
+
+        public string DeliveryMode { get; set; } = "standard";
     }
 
     public class ShipmentResponseDto
@@ -19,11 +21,16 @@ namespace LogiTrack.WebApi.Contracts.Shipments
         public double DistanceKm { get; set; }
         public double WeightKg { get; set; }
         public DateTime CreatedUtc { get; set; }
+
         public int? CustomerId { get; set; }
         public string? CustomerName { get; set; }
+
         public int? VehicleId { get; set; }
         public string? VehiclePlate { get; set; }
+
         public double EstimatedPrice { get; set; }
+        public double EstimatedTimeHours { get; set; }
+
         public string Currency { get; set; } = default!;
     }
 }

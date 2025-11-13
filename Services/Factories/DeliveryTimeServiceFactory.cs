@@ -1,5 +1,5 @@
-﻿using LogiTrack.WebApi.Services.Abstractions;
-using LogiTrack.WebApi.Options;
+﻿using LogiTrack.WebApi.Options;
+using LogiTrack.WebApi.Services.Abstractions;
 using Microsoft.Extensions.Options;
 
 namespace LogiTrack.WebApi.Services.Factories
@@ -13,38 +13,16 @@ namespace LogiTrack.WebApi.Services.Factories
             _options = options.Value;
         }
 
-        public IDeliveryTimeService CreateService()
+        public IDeliveryTimeService CreateService(string? deliveryMode)
         {
-            return _options.Mode?.ToLower() switch
+            var mode = (deliveryMode ?? "standard").ToLowerInvariant();
+
+            return mode switch
             {
                 "express" => new ExpressDeliveryTimeService(),
                 "eco" => new EcoDeliveryTimeService(),
                 _ => new StandardDeliveryTimeService()
             };
-        }
-    }
-   
-    public class StandardDeliveryTimeService : IDeliveryTimeService
-    {
-        public double CalculateHours(double distanceKm)
-        {
-            return distanceKm / 60.0; 
-        }
-    }
-
-    public class ExpressDeliveryTimeService : IDeliveryTimeService
-    {
-        public double CalculateHours(double distanceKm)
-        {
-            return distanceKm / 100.0; 
-        }
-    }
-
-    public class EcoDeliveryTimeService : IDeliveryTimeService
-    {
-        public double CalculateHours(double distanceKm)
-        {
-            return distanceKm / 40.0; 
         }
     }
 }

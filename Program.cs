@@ -15,6 +15,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
 using System.Text.Json.Serialization;
+using LogiTrack.WebApi.Services.Factories;
 
 namespace LogiTrack.WebApi
 {
@@ -93,7 +94,6 @@ namespace LogiTrack.WebApi
 
             builder.Services.AddAuthorization();
 
-            builder.Services.AddScoped<IDeliveryTimeService, DeliveryTimeService>();
             builder.Services.AddScoped<ITokenService, TokenService>();
 
             builder.Services.AddScoped<IShipmentsRepository, ShipmentsRepository>();
@@ -115,6 +115,7 @@ namespace LogiTrack.WebApi
             builder.Services.AddScoped<IDriversRepository, DriversRepository>();
             builder.Services.AddScoped<IVehiclesRepository, VehiclesRepository>();
             builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
+            builder.Services.AddSingleton<DeliveryTimeServiceFactory>();
 
             var app = builder.Build();
 

@@ -1,10 +1,7 @@
-﻿using System.Threading;
-using System.Threading.Tasks;
-
-namespace LogiTrack.WebApi.Services.Abstractions
+﻿namespace LogiTrack.WebApi.Services.Abstractions
 {
     public interface IDeliveryTimeService
     {
-        Task<double> EstimateAsync(double distanceKm, CancellationToken ct = default);
+        double Estimate(double distanceKm);
     }
 }

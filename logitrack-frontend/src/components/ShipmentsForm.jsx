@@ -11,6 +11,7 @@ import {
 import { isAdmin } from "../auth";
 
 const statuses = ["Planned", "InTransit", "Delivered", "Cancelled"];
+const deliveryModes = ["standard", "express", "eco"];
 
 export default function ShipmentsForm() {
   const [items, setItems] = useState([]);
@@ -28,6 +29,7 @@ export default function ShipmentsForm() {
     weightKg: "",
     customerId: "",
     vehicleId: "",
+    deliveryMode: "standard",
   };
   const [form, setForm] = useState(initialForm);
   const [editingId, setEditingId] = useState(null);
@@ -98,6 +100,7 @@ export default function ShipmentsForm() {
       weightKg: Number(form.weightKg || 0),
       customerId: Number(form.customerId),
       vehicleId: Number(form.vehicleId),
+      deliveryMode: form.deliveryMode || "standard",
     };
     run(
       () => createShipment(payload),
@@ -118,6 +121,7 @@ export default function ShipmentsForm() {
       weightKg: row.weightKg ?? "",
       customerId: row.customerId ?? "",
       vehicleId: row.vehicleId ?? "",
+      deliveryMode: "standard",
     });
   };
 
@@ -137,6 +141,7 @@ export default function ShipmentsForm() {
       weightKg: Number(form.weightKg || 0),
       customerId: Number(form.customerId),
       vehicleId: Number(form.vehicleId),
+      deliveryMode: form.deliveryMode || "standard",
     };
     run(
       () => updateShipment(editingId, payload),
@@ -180,7 +185,7 @@ export default function ShipmentsForm() {
 
       {admin && (
         <div className="row">
-          <h3>{editingId ? `Edit #${editingId}` : "Create"}</h3>
+          <h3>{editingId ? "Edit #${editingId}" : "Create"}</h3>
           <div className="controls grid-2">
             <input
               className="input"
@@ -190,6 +195,7 @@ export default function ShipmentsForm() {
                 setForm((f) => ({ ...f, reference: e.target.value }))
               }
             />
+
             <select
               className="input"
               value={form.customerId}
@@ -214,6 +220,7 @@ export default function ShipmentsForm() {
                 setForm((f) => ({ ...f, distanceKm: e.target.value }))
               }
             />
+
             <select
               className="input"
               value={form.vehicleId}
@@ -238,6 +245,21 @@ export default function ShipmentsForm() {
                 setForm((f) => ({ ...f, weightKg: e.target.value }))
               }
             />
+
+            {/* NEW: Delivery mode select */}
+            <select
+              className="input"
+              value={form.deliveryMode}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, deliveryMode: e.target.value }))
+              }
+            >
+              {deliveryModes.map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))}
+            </select>
 
             <div className="inline-actions">
               {!editingId ? (
@@ -325,6 +347,8 @@ export default function ShipmentsForm() {
                 <th>DistanceKm</th>
                 <th>WeightKg</th>
                 <th>CreatedUtc</th>
+                <th>Price</th>
+                <th>EstimatedTime (h)</th>
                 {admin && <th></th>}
               </tr>
             </thead>
@@ -332,7 +356,7 @@ export default function ShipmentsForm() {
               {items.length === 0 && (
                 <tr>
                   <td
-                    colSpan={admin ? 9 : 8}
+                    colSpan={admin ? 11 : 10}
                     style={{ textAlign: "center", color: "#6b7280" }}
                   >
                     {loading ? "Loading…" : "No data"}
@@ -349,11 +373,23 @@ export default function ShipmentsForm() {
                     <td>{row.status}</td>
                     <td>{c ? c.name : row.customerId}</td>
                     <td>
-                      {v ? `${v.plateNumber} — ${v.model}` : row.vehicleId}
+                      {v ? "${v.plateNumber} — ${v.model}" : row.vehicleId}
                     </td>
                     <td>{row.distanceKm}</td>
                     <td>{row.weightKg}</td>
                     <td>{new Date(row.createdUtc).toLocaleString()}</td>
+                    <td>
+                      {row.estimatedPrice != null
+                        ? `${row.estimatedPrice.toFixed(2)} ${
+                            row.currency || ""
+                          }`
+                        : "-"}
+                    </td>
+                    <td>
+                      {row.estimatedTimeHours != null
+                        ? row.estimatedTimeHours.toFixed(2)
+                        : "-"}
+                    </td>
                     {admin && (
                       <td style={{ textAlign: "right" }}>
                         <button

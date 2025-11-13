@@ -1,6 +1,11 @@
-﻿using System.Text;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Threading;
+using System.Threading.Tasks;
 using LogiTrack.WebApi.Models;
 using LogiTrack.WebApi.Services.Abstractions;
 using IO = System.IO;
@@ -15,55 +20,72 @@ namespace LogiTrack.WebApi.Repositories.File
         private static readonly JsonSerializerOptions _json = new()
         {
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            WriteIndented = true,
-            Converters = { new JsonStringEnumConverter() }
+            WriteIndented = true
         };
+
+        static FileShipmentsRepository()
+        {
+            _json.Converters.Add(new JsonStringEnumConverter());
+        }
 
         public FileShipmentsRepository(string filePath)
         {
             _filePath = filePath;
         }
 
-        public async Task<IEnumerable<Shipment>> GetAllAsync() =>
-            await ReadAllAsync();
-
-        public async Task<Shipment?> GetByIdAsync(int id)
+        public async Task<List<Shipment>> GetAllAsync(CancellationToken ct = default)
         {
-            var items = await ReadAllAsync();
-            return items.FirstOrDefault(s => s.Id == id);
-        }
-
-        public async Task<IEnumerable<Shipment>> SearchAsync(string? q, ShipmentStatus? status)
-        {
-            var items = await ReadAllAsync();
-
-            if (!string.IsNullOrWhiteSpace(q))
-                items = items.Where(s =>
-                    s.Reference.Contains(q, StringComparison.OrdinalIgnoreCase)).ToList();
-
-            if (status.HasValue)
-                items = items.Where(s => s.Status == status.Value).ToList();
-
+            var items = await ReadAllAsync(ct);
             return items;
         }
 
-        public async Task<Shipment> CreateAsync(Shipment shipment)
+        public async Task<Shipment?> GetByIdAsync(int id, CancellationToken ct = default)
         {
-            await _lock.WaitAsync();
+            var items = await ReadAllAsync(ct);
+            return items.FirstOrDefault(s => s.Id == id);
+        }
+
+        public async Task<List<Shipment>> SearchAsync(string? query, ShipmentStatus? status, CancellationToken ct = default)
+        {
+            var items = await ReadAllAsync(ct);
+            IEnumerable<Shipment> result = items;
+
+            if (!string.IsNullOrWhiteSpace(query))
+            {
+                result = result.Where(s =>
+                    s.Reference.Contains(query, StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (status.HasValue)
+            {
+                result = result.Where(s => s.Status == status.Value);
+            }
+
+            return result.OrderBy(s => s.Id).ToList();
+        }
+
+        public async Task AddAsync(Shipment entity, CancellationToken ct = default)
+        {
+            await _lock.WaitAsync(ct);
             try
             {
-                var items = await ReadAllAsync();
+                var items = await ReadAllAsync(ct);
                 var nextId = items.Count == 0 ? 1 : items.Max(s => s.Id) + 1;
 
-                shipment.Id = nextId;
-                if (shipment.CreatedUtc == default) shipment.CreatedUtc = DateTime.UtcNow;
+                entity.Id = nextId;
 
-                if (!Enum.IsDefined(typeof(ShipmentStatus), shipment.Status))
-                    shipment.Status = ShipmentStatus.Planned;
+                if (!Enum.IsDefined(typeof(ShipmentStatus), entity.Status))
+                {
+                    entity.Status = ShipmentStatus.Planned;
+                }
 
-                items.Add(shipment);
-                await WriteAllAsync(items);
-                return shipment;
+                if (entity.CreatedUtc == default)
+                {
+                    entity.CreatedUtc = DateTime.UtcNow;
+                }
+
+                items.Add(entity);
+                await WriteAllAsync(items, ct);
             }
             finally
             {
@@ -71,15 +93,17 @@ namespace LogiTrack.WebApi.Repositories.File
             }
         }
 
-        public async Task<bool> DeleteAsync(int id)
+        public async void Update(Shipment entity)
         {
             await _lock.WaitAsync();
             try
             {
                 var items = await ReadAllAsync();
-                var removed = items.RemoveAll(s => s.Id == id) > 0;
-                if (removed) await WriteAllAsync(items);
-                return removed;
+                var index = items.FindIndex(s => s.Id == entity.Id);
+                if (index == -1) return;
+
+                items[index] = entity;
+                await WriteAllAsync(items);
             }
             finally
             {
@@ -87,24 +111,42 @@ namespace LogiTrack.WebApi.Repositories.File
             }
         }
 
-        private async Task<List<Shipment>> ReadAllAsync()
+        public async void Remove(Shipment entity)
+        {
+            await _lock.WaitAsync();
+            try
+            {
+                var items = await ReadAllAsync();
+                items.RemoveAll(s => s.Id == entity.Id);
+                await WriteAllAsync(items);
+            }
+            finally
+            {
+                _lock.Release();
+            }
+        }
+
+        private async Task<List<Shipment>> ReadAllAsync(CancellationToken ct = default)
         {
             EnsureFileExists();
 
-            using var fs = IO.File.Open(_filePath, IO.FileMode.Open, IO.FileAccess.Read, IO.FileShare.Read);
+            await using var fs = IO.File.Open(_filePath, IO.FileMode.Open, IO.FileAccess.Read, IO.FileShare.Read);
             if (fs.Length == 0) return new List<Shipment>();
 
-            var list = await JsonSerializer.DeserializeAsync<List<Shipment>>(fs, _json);
+            var list = await JsonSerializer.DeserializeAsync<List<Shipment>>(fs, _json, ct);
             return list ?? new List<Shipment>();
         }
 
-        private async Task WriteAllAsync(List<Shipment> items)
+        private async Task WriteAllAsync(List<Shipment> items, CancellationToken ct = default)
         {
             var dir = IO.Path.GetDirectoryName(_filePath)!;
-            IO.Directory.CreateDirectory(dir);
+            if (!IO.Directory.Exists(dir))
+            {
+                IO.Directory.CreateDirectory(dir);
+            }
 
             var json = JsonSerializer.Serialize(items, _json);
-            await IO.File.WriteAllTextAsync(_filePath, json, Encoding.UTF8);
+            await IO.File.WriteAllTextAsync(_filePath, json, Encoding.UTF8, ct);
         }
 
         private void EnsureFileExists()
