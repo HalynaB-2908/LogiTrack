@@ -6,10 +6,6 @@ using LogiTrack.WebApi.Models;
 using LogiTrack.WebApi.Options;
 using LogiTrack.WebApi.Services.Abstractions;
 using LogiTrack.WebApi.Services.Factories;
-using System;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using IO = System.IO;
 
 namespace LogiTrack.WebApi.Controllers
@@ -23,15 +19,18 @@ namespace LogiTrack.WebApi.Controllers
         private readonly LogisticsOptions _options;
         private readonly IUnitOfWork _uow;
         private readonly DeliveryTimeServiceFactory _factory;
+        private readonly ILogger<ShipmentsController> _logger;
 
         public ShipmentsController(
             IOptions<LogisticsOptions> options,
             IUnitOfWork uow,
-            DeliveryTimeServiceFactory factory)
+            DeliveryTimeServiceFactory factory,
+            ILogger<ShipmentsController> logger)
         {
             _options = options.Value;
             _uow = uow;
             _factory = factory;
+            _logger = logger;
         }
 
         // GET ALL
@@ -39,6 +38,8 @@ namespace LogiTrack.WebApi.Controllers
         [ProducesResponseType(StatusCodes.Status200OK)]
         public async Task<IActionResult> GetAll(CancellationToken ct)
         {
+            _logger.LogInformation("Getting all shipments");
+
             var entities = await _uow.Shipments.GetAllAsync(ct);
 
             var items = entities
@@ -74,6 +75,8 @@ namespace LogiTrack.WebApi.Controllers
                 })
                 .ToList();
 
+            _logger.LogInformation("Returning {Count} shipments", items.Count);
+
             return Ok(items);
         }
 
@@ -85,11 +88,19 @@ namespace LogiTrack.WebApi.Controllers
         public async Task<IActionResult> GetById([FromRoute] int id, CancellationToken ct)
         {
             if (id <= 0)
+            {
+                _logger.LogWarning("GetById called with invalid id {Id}", id);
                 return BadRequest("Id must be greater than 0.");
+            }
+
+            _logger.LogInformation("Getting shipment by id {Id}", id);
 
             var s = await _uow.Shipments.GetByIdAsync(id, ct);
             if (s == null)
+            {
+                _logger.LogWarning("Shipment with id {Id} not found", id);
                 return NotFound($"Shipment with id {id} not found.");
+            }
 
             double price = s.Price.HasValue
                 ? (double)s.Price.Value
@@ -130,14 +141,19 @@ namespace LogiTrack.WebApi.Controllers
             [FromQuery] string? status,
             CancellationToken ct)
         {
+            _logger.LogInformation("Searching shipments. q={Query}, status={Status}", q, status);
+
             ShipmentStatus? parsedStatus = null;
 
             if (!string.IsNullOrWhiteSpace(status))
             {
                 if (!Enum.TryParse(status, true, out ShipmentStatus value))
+                {
+                    _logger.LogWarning("Unknown shipment status in search: {Status}", status);
                     return BadRequest(
                         $"Unknown status '{status}'. Allowed: {string.Join(", ", Enum.GetNames(typeof(ShipmentStatus)))}"
                     );
+                }
 
                 parsedStatus = value;
             }
@@ -177,6 +193,8 @@ namespace LogiTrack.WebApi.Controllers
                 })
                 .ToList();
 
+            _logger.LogInformation("Search returned {Count} shipments", items.Count);
+
             return Ok(items);
         }
 
@@ -190,9 +208,18 @@ namespace LogiTrack.WebApi.Controllers
             CancellationToken ct)
         {
             if (dto == null || string.IsNullOrWhiteSpace(dto.Reference))
+            {
+                _logger.LogWarning("Create shipment failed: Reference is missing");
                 return BadRequest("Reference is required.");
+            }
+
             if (dto.DistanceKm <= 0)
+            {
+                _logger.LogWarning("Create shipment failed: invalid DistanceKm {DistanceKm}", dto.DistanceKm);
                 return BadRequest("DistanceKm must be greater than 0.");
+            }
+
+            _logger.LogInformation("Creating new shipment with reference {Reference}", dto.Reference);
 
             var entity = new Shipment
             {
@@ -204,6 +231,7 @@ namespace LogiTrack.WebApi.Controllers
                 VehicleId = dto.VehicleId,
                 CreatedUtc = DateTime.UtcNow
             };
+
             var service = _factory.CreateService(dto.DeliveryMode);
             double hours = service.Estimate(entity.DistanceKm);
 
@@ -218,8 +246,11 @@ namespace LogiTrack.WebApi.Controllers
 
             var created = await _uow.Shipments.GetByIdAsync(entity.Id, ct);
             if (created == null)
+            {
+                _logger.LogError("Shipment was created but cannot be loaded. Id={Id}", entity.Id);
                 return StatusCode(StatusCodes.Status500InternalServerError,
                     "Shipment was created but cannot be loaded.");
+            }
 
             var serviceForResult = _factory.CreateService(dto.DeliveryMode);
             double hoursResult = serviceForResult.Estimate(created.DistanceKm);
@@ -246,6 +277,8 @@ namespace LogiTrack.WebApi.Controllers
                 Currency = _options.Currency ?? "EUR"
             };
 
+            _logger.LogInformation("Shipment created successfully with id {Id}", result.Id);
+
             return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
         }
 
@@ -261,15 +294,31 @@ namespace LogiTrack.WebApi.Controllers
             CancellationToken ct)
         {
             if (id <= 0)
+            {
+                _logger.LogWarning("Update shipment called with invalid id {Id}", id);
                 return BadRequest("Id must be greater than 0.");
+            }
+
             if (dto == null || string.IsNullOrWhiteSpace(dto.Reference))
+            {
+                _logger.LogWarning("Update shipment {Id} failed: Reference is missing", id);
                 return BadRequest("Reference is required.");
+            }
+
             if (dto.DistanceKm <= 0)
+            {
+                _logger.LogWarning("Update shipment {Id} failed: invalid DistanceKm {DistanceKm}", id, dto.DistanceKm);
                 return BadRequest("DistanceKm must be greater than 0.");
+            }
+
+            _logger.LogInformation("Updating shipment with id {Id}", id);
 
             var entity = await _uow.Shipments.GetByIdAsync(id, ct);
             if (entity == null)
+            {
+                _logger.LogWarning("Shipment with id {Id} not found for update", id);
                 return NotFound($"Shipment with id {id} not found.");
+            }
 
             entity.Reference = dto.Reference.Trim();
             entity.DistanceKm = dto.DistanceKm;
@@ -286,6 +335,8 @@ namespace LogiTrack.WebApi.Controllers
             _uow.Shipments.Update(entity);
             await _uow.SaveChangesAsync(ct);
 
+            _logger.LogInformation("Shipment with id {Id} updated successfully", id);
+
             return NoContent();
         }
 
@@ -298,14 +349,24 @@ namespace LogiTrack.WebApi.Controllers
         public async Task<IActionResult> Delete([FromRoute] int id, CancellationToken ct)
         {
             if (id <= 0)
+            {
+                _logger.LogWarning("Delete shipment called with invalid id {Id}", id);
                 return BadRequest("Id must be greater than 0.");
+            }
+
+            _logger.LogInformation("Deleting shipment with id {Id}", id);
 
             var entity = await _uow.Shipments.GetByIdAsync(id, ct);
             if (entity == null)
+            {
+                _logger.LogWarning("Shipment with id {Id} not found for delete", id);
                 return NotFound($"Shipment with id {id} not found.");
+            }
 
             _uow.Shipments.Remove(entity);
             await _uow.SaveChangesAsync(ct);
+
+            _logger.LogInformation("Shipment with id {Id} deleted successfully", id);
 
             return NoContent();
         }
@@ -319,14 +380,22 @@ namespace LogiTrack.WebApi.Controllers
             [FromServices] IOptions<StorageOptions> storage,
             [FromServices] IWebHostEnvironment env)
         {
+            _logger.LogInformation("Exporting shipments to JSON file");
+
             var path = storage.Value.ShipmentsFilePath;
             if (!IO.Path.IsPathRooted(path))
                 path = IO.Path.Combine(env.ContentRootPath, path);
 
             if (!IO.File.Exists(path))
+            {
+                _logger.LogWarning("Shipments export file not found at path {Path}", path);
                 return NotFound("Data file not found.");
+            }
 
             var bytes = IO.File.ReadAllBytes(path);
+
+            _logger.LogInformation("Shipments export file loaded successfully from {Path}", path);
+
             return File(bytes, "application/json", "shipments.json");
         }
     }

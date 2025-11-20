@@ -14,16 +14,20 @@ namespace LogiTrack.WebApi.Controllers
     public class VehiclesController : ControllerBase
     {
         private readonly LogiTrackDbContext _db;
+        private readonly ILogger<VehiclesController> _logger;
 
-        public VehiclesController(LogiTrackDbContext db)
+        public VehiclesController(LogiTrackDbContext db, ILogger<VehiclesController> logger)
         {
             _db = db;
+            _logger = logger;
         }
 
         [HttpGet]
         [ProducesResponseType(StatusCodes.Status200OK)]
         public async Task<IActionResult> GetAll()
         {
+            _logger.LogInformation("Getting all vehicles");
+
             var items = await _db.Vehicles
                 .AsNoTracking()
                 .Include(v => v.Driver)
@@ -39,6 +43,8 @@ namespace LogiTrack.WebApi.Controllers
                 })
                 .ToListAsync();
 
+            _logger.LogInformation("Returning {Count} vehicles", items.Count);
+
             return Ok(items);
         }
 
@@ -48,7 +54,13 @@ namespace LogiTrack.WebApi.Controllers
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> GetById([FromRoute] int id)
         {
-            if (id <= 0) return BadRequest("Id must be greater than 0.");
+            if (id <= 0)
+            {
+                _logger.LogWarning("GetById called with invalid id {Id}", id);
+                return BadRequest("Id must be greater than 0.");
+            }
+
+            _logger.LogInformation("Getting vehicle by id {Id}", id);
 
             var item = await _db.Vehicles
                 .AsNoTracking()
@@ -65,7 +77,12 @@ namespace LogiTrack.WebApi.Controllers
                 })
                 .FirstOrDefaultAsync();
 
-            if (item == null) return NotFound($"Vehicle with id {id} not found.");
+            if (item == null)
+            {
+                _logger.LogWarning("Vehicle with id {Id} not found", id);
+                return NotFound($"Vehicle with id {id} not found.");
+            }
+
             return Ok(item);
         }
 
@@ -75,7 +92,13 @@ namespace LogiTrack.WebApi.Controllers
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> Create([FromBody] VehicleCreateUpdateDto dto)
         {
-            if (!ModelState.IsValid) return BadRequest(ModelState);
+            if (!ModelState.IsValid)
+            {
+                _logger.LogWarning("Create vehicle failed: invalid model state");
+                return BadRequest(ModelState);
+            }
+
+            _logger.LogInformation("Creating new vehicle with plate {Plate}", dto.PlateNumber);
 
             var entity = new Vehicle
             {
@@ -107,6 +130,8 @@ namespace LogiTrack.WebApi.Controllers
                 DriverName = driverName
             };
 
+            _logger.LogInformation("Vehicle created successfully with id {Id}", entity.Id);
+
             return CreatedAtAction(nameof(GetById), new { id = entity.Id }, result);
         }
 
@@ -117,11 +142,26 @@ namespace LogiTrack.WebApi.Controllers
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> Update([FromRoute] int id, [FromBody] VehicleCreateUpdateDto dto)
         {
-            if (id <= 0) return BadRequest("Id must be greater than 0.");
-            if (!ModelState.IsValid) return BadRequest(ModelState);
+            if (id <= 0)
+            {
+                _logger.LogWarning("Update vehicle called with invalid id {Id}", id);
+                return BadRequest("Id must be greater than 0.");
+            }
+
+            if (!ModelState.IsValid)
+            {
+                _logger.LogWarning("Update vehicle {Id} failed: invalid model state", id);
+                return BadRequest(ModelState);
+            }
+
+            _logger.LogInformation("Updating vehicle with id {Id}", id);
 
             var entity = await _db.Vehicles.FirstOrDefaultAsync(v => v.Id == id);
-            if (entity == null) return NotFound($"Vehicle with id {id} not found.");
+            if (entity == null)
+            {
+                _logger.LogWarning("Vehicle with id {Id} not found for update", id);
+                return NotFound($"Vehicle with id {id} not found.");
+            }
 
             entity.PlateNumber = dto.PlateNumber.Trim();
             entity.Model = dto.Model.Trim();
@@ -129,6 +169,9 @@ namespace LogiTrack.WebApi.Controllers
             entity.DriverId = dto.DriverId;
 
             await _db.SaveChangesAsync();
+
+            _logger.LogInformation("Vehicle with id {Id} updated successfully", id);
+
             return NoContent();
         }
 
@@ -139,13 +182,26 @@ namespace LogiTrack.WebApi.Controllers
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> Delete([FromRoute] int id)
         {
-            if (id <= 0) return BadRequest("Id must be greater than 0.");
+            if (id <= 0)
+            {
+                _logger.LogWarning("Delete vehicle called with invalid id {Id}", id);
+                return BadRequest("Id must be greater than 0.");
+            }
+
+            _logger.LogInformation("Deleting vehicle with id {Id}", id);
 
             var entity = await _db.Vehicles.FirstOrDefaultAsync(v => v.Id == id);
-            if (entity == null) return NotFound($"Vehicle with id {id} not found.");
+            if (entity == null)
+            {
+                _logger.LogWarning("Vehicle with id {Id} not found for delete", id);
+                return NotFound($"Vehicle with id {id} not found.");
+            }
 
             _db.Vehicles.Remove(entity);
             await _db.SaveChangesAsync();
+
+            _logger.LogInformation("Vehicle with id {Id} deleted successfully", id);
+
             return NoContent();
         }
     }

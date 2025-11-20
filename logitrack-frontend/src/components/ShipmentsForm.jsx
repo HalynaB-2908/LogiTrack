@@ -373,7 +373,7 @@ export default function ShipmentsForm() {
                     <td>{row.status}</td>
                     <td>{c ? c.name : row.customerId}</td>
                     <td>
-                      {v ? "${v.plateNumber} — ${v.model}" : row.vehicleId}
+                      {v ? `${v.plateNumber} — ${v.model}` : row.vehicleId}
                     </td>
                     <td>{row.distanceKm}</td>
                     <td>{row.weightKg}</td>
