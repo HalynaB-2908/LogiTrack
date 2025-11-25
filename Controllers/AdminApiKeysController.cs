@@ -7,6 +7,11 @@ using Microsoft.EntityFrameworkCore;
 
 namespace LogiTrack.WebApi.Controllers
 {
+    /// <summary>
+    /// Controller for administrative management of API keys.
+    /// Provides functionality to view, create and deactivate API keys.
+    /// Accessible only for users with Admin role.
+    /// </summary>
     [ApiController]
     [Route("api/v1/admin/apikeys")]
     [Produces("application/json")]
@@ -16,12 +21,23 @@ namespace LogiTrack.WebApi.Controllers
         private readonly LogiTrackDbContext _db;
         private readonly ILogger<AdminApiKeysController> _logger;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="AdminApiKeysController"/> class.
+        /// </summary>
+        /// <param name="db">Database context for accessing API keys.</param>
+        /// <param name="logger">Logger instance for diagnostic and audit messages.</param>
         public AdminApiKeysController(LogiTrackDbContext db, ILogger<AdminApiKeysController> logger)
         {
             _db = db;
             _logger = logger;
         }
 
+        /// <summary>
+        /// Returns a list of all API keys with basic information.
+        /// Sensitive key values are not included in this response.
+        /// </summary>
+        /// <returns>List of API keys.</returns>
+        /// <response code="200">API keys list successfully returned.</response>
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
@@ -43,6 +59,13 @@ namespace LogiTrack.WebApi.Controllers
             return Ok(list);
         }
 
+        /// <summary>
+        /// Creates a new API key with a generated secure token.
+        /// </summary>
+        /// <param name="dto">Object containing the name of the API key.</param>
+        /// <returns>Created API key details including generated token.</returns>
+        /// <response code="200">API key successfully created.</response>
+        /// <response code="400">Name is missing or invalid.</response>
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] CreateApiKeyDto dto)
         {
@@ -83,6 +106,13 @@ namespace LogiTrack.WebApi.Controllers
             });
         }
 
+        /// <summary>
+        /// Deactivates an existing API key by its identifier.
+        /// </summary>
+        /// <param name="id">Identifier of the API key.</param>
+        /// <returns>Status message indicating the result.</returns>
+        /// <response code="200">API key successfully deactivated.</response>
+        /// <response code="404">API key not found.</response>
         [HttpPatch("{id:int}/deactivate")]
         public async Task<IActionResult> Deactivate([FromRoute] int id)
         {
@@ -111,8 +141,15 @@ namespace LogiTrack.WebApi.Controllers
         }
     }
 
+    /// <summary>
+    /// DTO used for creating a new API key.
+    /// </summary>
     public class CreateApiKeyDto
     {
+        /// <summary>
+        /// Name of the API key.
+        /// Used for identification and management purposes.
+        /// </summary>
         public string Name { get; set; } = string.Empty;
     }
 }

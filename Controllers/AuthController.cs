@@ -8,6 +8,10 @@ using LogiTrack.WebApi.Services.Abstractions;
 
 namespace LogiTrack.WebApi.Controllers
 {
+    /// <summary>
+    /// Controller responsible for user authentication and authorization operations.
+    /// Provides endpoints for user registration, login and retrieval of current user claims.
+    /// </summary>
     [ApiController]
     [Route("api/v1/[controller]")]
     [Produces("application/json")]
@@ -18,6 +22,14 @@ namespace LogiTrack.WebApi.Controllers
         private readonly ITokenService _tokens;
         private readonly ILogger<AuthController> _logger;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="AuthController"/> class.
+        /// Injects required services for user and role management, token generation and logging.
+        /// </summary>
+        /// <param name="users">User manager for managing application users.</param>
+        /// <param name="roles">Role manager responsible for role operations.</param>
+        /// <param name="tokens">Service for generating JWT tokens.</param>
+        /// <param name="logger">Logger instance for authentication events.</param>
         public AuthController(
             UserManager<ApplicationUser> users,
             RoleManager<IdentityRole> roles,
@@ -30,6 +42,14 @@ namespace LogiTrack.WebApi.Controllers
             _logger = logger;
         }
 
+        /// <summary>
+        /// Registers a new user in the system and assigns the specified role.
+        /// After successful registration, a JWT token is generated and returned.
+        /// </summary>
+        /// <param name="dto">Registration data including email, password, username and role.</param>
+        /// <returns>Authentication response with user info and JWT token.</returns>
+        /// <response code="200">User successfully registered.</response>
+        /// <response code="400">Registration failed due to validation errors.</response>
         [HttpPost("register")]
         [AllowAnonymous]
         public async Task<IActionResult> Register([FromBody] RegisterDto dto)
@@ -72,6 +92,13 @@ namespace LogiTrack.WebApi.Controllers
             });
         }
 
+        /// <summary>
+        /// Authenticates a user and returns a JWT token if credentials are valid.
+        /// </summary>
+        /// <param name="dto">Login credentials (email or username and password).</param>
+        /// <returns>Authentication response with JWT token.</returns>
+        /// <response code="200">Login successful.</response>
+        /// <response code="401">Invalid credentials.</response>
         [HttpPost("login")]
         [AllowAnonymous]
         public async Task<IActionResult> Login([FromBody] LoginDto dto)
@@ -109,6 +136,12 @@ namespace LogiTrack.WebApi.Controllers
             });
         }
 
+        /// <summary>
+        /// Returns information about the currently authenticated user based on JWT claims.
+        /// </summary>
+        /// <returns>List of claims associated with the current user.</returns>
+        /// <response code="200">Claims successfully returned.</response>
+        /// <response code="401">User is not authenticated.</response>
         [HttpGet("me")]
         [Authorize]
         public IActionResult Me()

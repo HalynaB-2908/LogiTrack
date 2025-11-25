@@ -7,6 +7,10 @@ using LogiTrack.WebApi.Contracts.Vehicles;
 
 namespace LogiTrack.WebApi.Controllers
 {
+    /// <summary>
+    /// Controller responsible for managing vehicles in the system.
+    /// Provides endpoints for CRUD operations on vehicles and their assigned drivers.
+    /// </summary>
     [ApiController]
     [Route("api/v1/[controller]")]
     [Produces("application/json")]
@@ -16,12 +20,22 @@ namespace LogiTrack.WebApi.Controllers
         private readonly LogiTrackDbContext _db;
         private readonly ILogger<VehiclesController> _logger;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="VehiclesController"/> class.
+        /// </summary>
+        /// <param name="db">Database context for accessing vehicle data.</param>
+        /// <param name="logger">Logger for controller diagnostics.</param>
         public VehiclesController(LogiTrackDbContext db, ILogger<VehiclesController> logger)
         {
             _db = db;
             _logger = logger;
         }
 
+        /// <summary>
+        /// Returns a list of all vehicles.
+        /// </summary>
+        /// <returns>List of vehicles with their basic information and assigned driver.</returns>
+        /// <response code="200">List of vehicles successfully returned.</response>
         [HttpGet]
         [ProducesResponseType(StatusCodes.Status200OK)]
         public async Task<IActionResult> GetAll()
@@ -48,6 +62,14 @@ namespace LogiTrack.WebApi.Controllers
             return Ok(items);
         }
 
+        /// <summary>
+        /// Returns a specific vehicle by its identifier.
+        /// </summary>
+        /// <param name="id">Vehicle identifier.</param>
+        /// <returns>Vehicle data.</returns>
+        /// <response code="200">Vehicle successfully returned.</response>
+        /// <response code="400">Invalid vehicle id.</response>
+        /// <response code="404">Vehicle not found.</response>
         [HttpGet("{id:int}")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -86,6 +108,13 @@ namespace LogiTrack.WebApi.Controllers
             return Ok(item);
         }
 
+        /// <summary>
+        /// Creates a new vehicle.
+        /// </summary>
+        /// <param name="dto">Vehicle creation data.</param>
+        /// <returns>Created vehicle.</returns>
+        /// <response code="201">Vehicle successfully created.</response>
+        /// <response code="400">Invalid input data.</response>
         [HttpPost]
         [Authorize(Roles = "Admin")]
         [ProducesResponseType(StatusCodes.Status201Created)]
@@ -135,6 +164,15 @@ namespace LogiTrack.WebApi.Controllers
             return CreatedAtAction(nameof(GetById), new { id = entity.Id }, result);
         }
 
+        /// <summary>
+        /// Updates an existing vehicle.
+        /// </summary>
+        /// <param name="id">Vehicle identifier.</param>
+        /// <param name="dto">Updated vehicle data.</param>
+        /// <returns>No content if update successful.</returns>
+        /// <response code="204">Vehicle successfully updated.</response>
+        /// <response code="400">Invalid input data.</response>
+        /// <response code="404">Vehicle not found.</response>
         [HttpPut("{id:int}")]
         [Authorize(Roles = "Admin")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -175,6 +213,14 @@ namespace LogiTrack.WebApi.Controllers
             return NoContent();
         }
 
+        /// <summary>
+        /// Deletes a vehicle by its identifier.
+        /// </summary>
+        /// <param name="id">Vehicle identifier.</param>
+        /// <returns>No content if deletion is successful.</returns>
+        /// <response code="204">Vehicle successfully deleted.</response>
+        /// <response code="400">Invalid vehicle id.</response>
+        /// <response code="404">Vehicle not found.</response>
         [HttpDelete("{id:int}")]
         [Authorize(Roles = "Admin")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]

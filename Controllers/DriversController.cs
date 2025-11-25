@@ -7,6 +7,10 @@ using LogiTrack.WebApi.Contracts.Drivers;
 
 namespace LogiTrack.WebApi.Controllers
 {
+    /// <summary>
+    /// Controller responsible for managing drivers.
+    /// Provides CRUD operations for driver entities.
+    /// </summary>
     [ApiController]
     [Route("api/v1/[controller]")]
     [Produces("application/json")]
@@ -16,12 +20,22 @@ namespace LogiTrack.WebApi.Controllers
         private readonly LogiTrackDbContext _db;
         private readonly ILogger<DriversController> _logger;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="DriversController"/> class.
+        /// </summary>
+        /// <param name="db">Database context.</param>
+        /// <param name="logger">Logger instance.</param>
         public DriversController(LogiTrackDbContext db, ILogger<DriversController> logger)
         {
             _db = db;
             _logger = logger;
         }
 
+        /// <summary>
+        /// Returns a list of all drivers.
+        /// </summary>
+        /// <returns>List of drivers.</returns>
+        /// <response code="200">Drivers successfully retrieved.</response>
         [HttpGet]
         [ProducesResponseType(StatusCodes.Status200OK)]
         public async Task<IActionResult> GetAll()
@@ -44,6 +58,14 @@ namespace LogiTrack.WebApi.Controllers
             return Ok(items);
         }
 
+        /// <summary>
+        /// Returns driver by id.
+        /// </summary>
+        /// <param name="id">Driver identifier.</param>
+        /// <returns>Driver data.</returns>
+        /// <response code="200">Driver found.</response>
+        /// <response code="400">Invalid id supplied.</response>
+        /// <response code="404">Driver not found.</response>
         [HttpGet("{id:int}")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -78,6 +100,13 @@ namespace LogiTrack.WebApi.Controllers
             return Ok(item);
         }
 
+        /// <summary>
+        /// Creates a new driver.
+        /// </summary>
+        /// <param name="dto">Driver creation data.</param>
+        /// <returns>Created driver.</returns>
+        /// <response code="201">Driver successfully created.</response>
+        /// <response code="400">Invalid request data.</response>
         [HttpPost]
         [Authorize(Roles = "Admin")]
         [ProducesResponseType(StatusCodes.Status201Created)]
@@ -107,6 +136,15 @@ namespace LogiTrack.WebApi.Controllers
             return CreatedAtAction(nameof(GetById), new { id = entity.Id }, result);
         }
 
+        /// <summary>
+        /// Updates an existing driver.
+        /// </summary>
+        /// <param name="id">Driver identifier.</param>
+        /// <param name="dto">Updated driver data.</param>
+        /// <returns>No content if successful.</returns>
+        /// <response code="204">Driver successfully updated.</response>
+        /// <response code="400">Invalid id.</response>
+        /// <response code="404">Driver not found.</response>
         [HttpPut("{id:int}")]
         [Authorize(Roles = "Admin")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -139,6 +177,14 @@ namespace LogiTrack.WebApi.Controllers
             return NoContent();
         }
 
+        /// <summary>
+        /// Deletes a driver by id.
+        /// </summary>
+        /// <param name="id">Driver identifier.</param>
+        /// <returns>No content if deleted.</returns>
+        /// <response code="204">Driver successfully deleted.</response>
+        /// <response code="400">Invalid id.</response>
+        /// <response code="404">Driver not found.</response>
         [HttpDelete("{id:int}")]
         [Authorize(Roles = "Admin")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]

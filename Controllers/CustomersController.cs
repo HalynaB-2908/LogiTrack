@@ -6,6 +6,10 @@ using LogiTrack.WebApi.Services.Abstractions;
 
 namespace LogiTrack.WebApi.Controllers
 {
+    /// <summary>
+    /// Controller responsible for managing customers.
+    /// Provides endpoints for CRUD operations on customer entities.
+    /// </summary>
     [ApiController]
     [Route("api/v1/[controller]")]
     [Produces("application/json")]
@@ -16,6 +20,12 @@ namespace LogiTrack.WebApi.Controllers
         private readonly IUnitOfWork _uow;
         private readonly ILogger<CustomersController> _logger;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="CustomersController"/> class.
+        /// </summary>
+        /// <param name="customers">Customer repository for database operations.</param>
+        /// <param name="uow">Unit of Work for transaction management.</param>
+        /// <param name="logger">Logger for tracking controller actions.</param>
         public CustomersController(
             ICustomersRepository customers,
             IUnitOfWork uow,
@@ -26,6 +36,12 @@ namespace LogiTrack.WebApi.Controllers
             _logger = logger;
         }
 
+        /// <summary>
+        /// Returns a list of all customers.
+        /// </summary>
+        /// <param name="ct">Cancellation token.</param>
+        /// <returns>List of customers.</returns>
+        /// <response code="200">Customers successfully retrieved.</response>
         [HttpGet]
         [ProducesResponseType(StatusCodes.Status200OK)]
         public async Task<IActionResult> GetAll(CancellationToken ct)
@@ -51,6 +67,15 @@ namespace LogiTrack.WebApi.Controllers
             return Ok(result);
         }
 
+        /// <summary>
+        /// Returns a customer by its id.
+        /// </summary>
+        /// <param name="id">Customer identifier.</param>
+        /// <param name="ct">Cancellation token.</param>
+        /// <returns>Customer data.</returns>
+        /// <response code="200">Customer found.</response>
+        /// <response code="400">Invalid id provided.</response>
+        /// <response code="404">Customer not found.</response>
         [HttpGet("{id:int}")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -84,6 +109,14 @@ namespace LogiTrack.WebApi.Controllers
             return Ok(dto);
         }
 
+        /// <summary>
+        /// Creates a new customer.
+        /// </summary>
+        /// <param name="dto">Customer creation data.</param>
+        /// <param name="ct">Cancellation token.</param>
+        /// <returns>Created customer.</returns>
+        /// <response code="201">Customer successfully created.</response>
+        /// <response code="400">Validation error or email already exists.</response>
         [HttpPost]
         [Authorize(Roles = "Admin")]
         [ProducesResponseType(StatusCodes.Status201Created)]
@@ -131,11 +164,18 @@ namespace LogiTrack.WebApi.Controllers
             return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
         }
 
+        /// <summary>
+        /// Updates an existing customer.
+        /// </summary>
+        /// <param name="id">Customer identifier.</param>
+        /// <param name="dto">Updated customer data.</param>
+        /// <param name="ct">Cancellation token.</param>
+        /// <returns>No content if successful.</returns>
+        /// <response code="204">Customer successfully updated.</response>
+        /// <response code="400">Invalid request.</response>
+        /// <response code="404">Customer not found.</response>
         [HttpPut("{id:int}")]
         [Authorize(Roles = "Admin")]
-        [ProducesResponseType(StatusCodes.Status204NoContent)]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> Update([FromRoute] int id, [FromBody] CustomerCreateUpdateDto dto, CancellationToken ct)
         {
             if (id <= 0)
@@ -155,59 +195,46 @@ namespace LogiTrack.WebApi.Controllers
             var entity = await _customers.GetByIdAsync(id, ct);
             if (entity == null)
             {
-                _logger.LogWarning("Customer with id {Id} not found for update", id);
                 return NotFound($"Customer with id {id} not found.");
             }
 
-            var newEmail = dto.Email.Trim();
-            if (!string.Equals(entity.Email, newEmail, StringComparison.OrdinalIgnoreCase))
-            {
-                if (await _customers.ExistsByEmailAsync(newEmail, ct))
-                {
-                    _logger.LogWarning("Update failed: email {Email} already exists", newEmail);
-                    return BadRequest("Customer with the same email already exists.");
-                }
-            }
-
             entity.Name = dto.Name.Trim();
-            entity.Email = newEmail;
+            entity.Email = dto.Email.Trim();
             entity.Phone = dto.Phone;
             entity.Address = dto.Address;
 
             _customers.Update(entity);
             await _uow.SaveChangesAsync(ct);
 
-            _logger.LogInformation("Customer with id {Id} updated successfully", id);
-
             return NoContent();
         }
 
+        /// <summary>
+        /// Deletes a customer by id.
+        /// </summary>
+        /// <param name="id">Customer identifier.</param>
+        /// <param name="ct">Cancellation token.</param>
+        /// <returns>No content if deleted.</returns>
+        /// <response code="204">Customer successfully deleted.</response>
+        /// <response code="400">Invalid id.</response>
+        /// <response code="404">Customer not found.</response>
         [HttpDelete("{id:int}")]
         [Authorize(Roles = "Admin")]
-        [ProducesResponseType(StatusCodes.Status204NoContent)]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> Delete([FromRoute] int id, CancellationToken ct)
         {
             if (id <= 0)
             {
-                _logger.LogWarning("Delete called with invalid id {Id}", id);
                 return BadRequest("Id must be greater than 0.");
             }
-
-            _logger.LogInformation("Deleting customer with id {Id}", id);
 
             var entity = await _customers.GetByIdAsync(id, ct);
             if (entity == null)
             {
-                _logger.LogWarning("Customer with id {Id} not found for delete", id);
                 return NotFound($"Customer with id {id} not found.");
             }
 
             _customers.Remove(entity);
             await _uow.SaveChangesAsync(ct);
-
-            _logger.LogInformation("Customer with id {Id} deleted successfully", id);
 
             return NoContent();
         }

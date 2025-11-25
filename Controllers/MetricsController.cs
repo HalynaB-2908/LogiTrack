@@ -4,6 +4,11 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace LogiTrack.WebApi.Controllers
 {
+    /// <summary>
+    /// Controller for accessing API usage statistics and performance metrics.
+    /// Provides aggregated information about total requests and per-controller usage.
+    /// Access is allowed only for users with the Admin role.
+    /// </summary>
     [ApiController]
     [Route("api/v1/[controller]")]
     [Produces("application/json")]
@@ -12,11 +17,23 @@ namespace LogiTrack.WebApi.Controllers
     {
         private readonly IApiMetricsService _metrics;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="MetricsController"/> class.
+        /// </summary>
+        /// <param name="metrics">Service that collects API metrics and statistics.</param>
         public MetricsController(IApiMetricsService metrics)
         {
             _metrics = metrics;
         }
 
+        /// <summary>
+        /// Returns aggregated API metrics including total request count,
+        /// average response time and per-controller request statistics.
+        /// </summary>
+        /// <returns>
+        /// Object containing API metrics summary.
+        /// </returns>
+        /// <response code="200">Metrics successfully returned.</response>
         [HttpGet]
         [ProducesResponseType(StatusCodes.Status200OK)]
         public IActionResult Get()

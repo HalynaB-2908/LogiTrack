@@ -14,13 +14,22 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Serilog;
+using System.Reflection;
 using System.Text;
 using System.Text.Json.Serialization;
+using System.IO;
 
 namespace LogiTrack.WebApi
 {
+    /// <summary>
+    /// Entry point of the LogiTrack Web API application.
+    /// </summary>
     public class Program
     {
+        /// <summary>
+        /// Configures services, builds the web application and starts the HTTP server.
+        /// </summary>
+        /// <param name="args">Command line arguments.</param>
         public static async Task Main(string[] args)
         {
             Log.Logger = new LoggerConfiguration()
@@ -45,23 +54,47 @@ namespace LogiTrack.WebApi
                     .AddJsonOptions(o => o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
                 builder.Services.AddEndpointsApiExplorer();
+
                 builder.Services.AddSwaggerGen(c =>
                 {
-                    c.SwaggerDoc("v1", new OpenApiInfo { Title = "LogiTrack API", Version = "v1" });
+                    c.SwaggerDoc("v1", new OpenApiInfo
+                    {
+                        Title = "LogiTrack API",
+                        Version = "v1",
+                        Description = "API for managing logistics processes in LogiTrack system."
+                    });
+
                     var jwtScheme = new OpenApiSecurityScheme
                     {
                         Name = "Authorization",
+                        Description = "Enter JWT token. Example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+                        In = ParameterLocation.Header,
                         Type = SecuritySchemeType.Http,
                         Scheme = "bearer",
                         BearerFormat = "JWT",
-                        In = ParameterLocation.Header,
-                        Description = "Bearer {token}"
+                        Reference = new OpenApiReference
+                        {
+                            Type = ReferenceType.SecurityScheme,
+                            Id = "Bearer"
+                        }
                     };
+
                     c.AddSecurityDefinition("Bearer", jwtScheme);
+
                     c.AddSecurityRequirement(new OpenApiSecurityRequirement
-                    {
-                        { jwtScheme, Array.Empty<string>() }
-                    });
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            Array.Empty<string>()
+        }
+    });
                 });
 
                 builder.Services.Configure<LogisticsOptions>(builder.Configuration.GetSection("Logistics"));
@@ -116,7 +149,7 @@ namespace LogiTrack.WebApi
                 builder.Services.AddScoped<IShipmentsRepository, ShipmentsRepository>();
 
                 /*
-                // переключення файл/пам'ять
+                // File-based repository alternative
                 builder.Services.AddSingleton<IShipmentsRepository>(sp =>
                 {
                     var env = sp.GetRequiredService<IWebHostEnvironment>();

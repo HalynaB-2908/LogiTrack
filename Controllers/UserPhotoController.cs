@@ -6,6 +6,10 @@ using Serilog;
 
 namespace LogiTrack.WebApi.Controllers
 {
+    /// <summary>
+    /// Controller responsible for uploading user profile photos.
+    /// Allows an authenticated user or administrator to upload a photo for a specific user.
+    /// </summary>
     [ApiController]
     [Route("api/v1/users/{userId}/photo")]
     [Produces("application/json")]
@@ -25,6 +29,11 @@ namespace LogiTrack.WebApi.Controllers
             )
             .CreateLogger();
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="UserPhotoController"/> class.
+        /// </summary>
+        /// <param name="users">User manager for accessing application users.</param>
+        /// <param name="logger">Logger for controller diagnostics.</param>
         public UserPhotoController(
             UserManager<ApplicationUser> users,
             ILogger<UserPhotoController> logger)
@@ -33,15 +42,27 @@ namespace LogiTrack.WebApi.Controllers
             _logger = logger;
         }
 
+        /// <summary>
+        /// Uploads a profile photo for the specified user.
+        /// The photo is saved on the server in the user's upload directory.
+        /// </summary>
+        /// <param name="userId">Identifier of the user whose photo is being uploaded.</param>
+        /// <param name="file">Image file sent through multipart/form-data.</param>
+        /// <returns>Result of the upload operation.</returns>
+        /// <response code="200">Photo uploaded successfully.</response>
+        /// <response code="400">Invalid input data or empty file.</response>
+        /// <response code="404">User not found.</response>
+        /// <response code="500">Internal server error during file upload.</response>
         [HttpPost]
         [RequestSizeLimit(10_000_000)]
+        [Consumes("multipart/form-data")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> UploadPhoto(
             [FromRoute] string userId,
-            [FromForm] IFormFile file)
+            IFormFile file)
         {
             var currentUser = User?.Identity?.IsAuthenticated == true
                 ? User.Identity!.Name
