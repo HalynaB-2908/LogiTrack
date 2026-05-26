@@ -33,7 +33,7 @@ namespace LogiTrack.WebApi.Repositories.EF
             return await _db.Shipments
                 .Include(s => s.Customer)
                 .Include(s => s.Vehicle)
-                .AsNoTracking()
+                //.AsNoTracking()
                 .FirstOrDefaultAsync(s => s.Id == id, ct);
         }
 
