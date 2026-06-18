@@ -8,10 +8,11 @@ import { isAdmin } from "./auth";
 import "./App.css";
 
 export default function App() {
-  return (
-    <div className="container">
-      <Navbar />
+return (
+  <>
+    <Navbar />
 
+    <div className="container">
       <Routes>
         <Route
           path="/"
@@ -36,5 +37,6 @@ export default function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </div>
-  );
+  </>
+);
 }

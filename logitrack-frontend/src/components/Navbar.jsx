@@ -14,7 +14,8 @@ export default function Navbar() {
   return (
     <header className="navbar">
       <Link to="/" className="navbar-brand">
-        logitrack
+        <span className="navbar-brand-logi">Logi</span>
+        <span className="navbar-brand-track">Track</span>
       </Link>
 
       <nav className="navbar-actions">
@@ -22,8 +23,26 @@ export default function Navbar() {
         {isLoggedIn() && (
           <>
             <span className="navbar-username">{user}</span>
-            <button className="btn danger" onClick={logout}>
-              Logout
+            <button
+              type="button"
+              className="btn danger navbar-logout"
+              onClick={logout}
+              aria-label="Logout"
+              title="Logout"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M10 17l5-5-5-5" />
+                <path d="M15 12H3" />
+                <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
+              </svg>
             </button>
           </>
         )}

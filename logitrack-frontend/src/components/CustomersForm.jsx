@@ -135,7 +135,7 @@ export default function CustomersForm() {
                 <th>Email</th>
                 <th style={{ width: 140 }}>Phone</th>
                 <th>Address</th>
-                <th style={{ width: 140 }}></th>
+                <th style={{ width: 96 }}></th>
               </tr>
             </thead>
             <tbody>
@@ -153,25 +153,56 @@ export default function CustomersForm() {
                   <td>{row.email}</td>
                   <td>{row.phone || "-"}</td>
                   <td>{row.address || "-"}</td>
-                  <td style={{ textAlign: "right" }}>
+                  <td className="table-actions-cell">
                     {admin && (
-                      <>
+                      <div className="table-actions">
                         <button
-                          className="btn"
+                          type="button"
+                          className="icon-btn icon-btn-edit"
                           onClick={() => openEdit(row)}
                           disabled={loading}
+                          aria-label="Edit customer"
+                          title="Edit"
                         >
-                          Edit
+                          <svg
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            aria-hidden="true"
+                          >
+                            <path d="M12 20h9" />
+                            <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z" />
+                          </svg>
                         </button>
+
                         <button
-                          className="btn danger"
+                          type="button"
+                          className="icon-btn icon-btn-delete"
                           onClick={() => remove(row.id)}
                           disabled={loading}
-                          style={{ marginLeft: 8 }}
+                          aria-label="Delete customer"
+                          title="Delete"
                         >
-                          Delete
+                          <svg
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            aria-hidden="true"
+                          >
+                            <path d="M3 6h18" />
+                            <path d="M8 6V4h8v2" />
+                            <path d="M19 6l-1 14H6L5 6" />
+                            <path d="M10 11v5" />
+                            <path d="M14 11v5" />
+                          </svg>
                         </button>
-                      </>
+                      </div>
                     )}
                   </td>
                 </tr>

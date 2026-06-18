@@ -185,7 +185,7 @@ export default function ShipmentsForm() {
 
       {admin && (
         <div className="row">
-          <h3>{editingId ? "Edit #${editingId}" : "Create"}</h3>
+          <h3>{editingId ? "Edit shipment" : "Create shipment"}</h3>
           <div className="controls grid-2">
             <input
               className="input"
@@ -391,22 +391,55 @@ export default function ShipmentsForm() {
                         : "-"}
                     </td>
                     {admin && (
-                      <td style={{ textAlign: "right" }}>
-                        <button
-                          className="btn"
-                          onClick={() => startEdit(row)}
-                          disabled={loading}
-                        >
-                          Edit
-                        </button>
-                        <button
-                          className="btn danger"
-                          onClick={() => handleDelete(row.id)}
-                          disabled={loading}
-                          style={{ marginLeft: 8 }}
-                        >
-                          Delete
-                        </button>
+                      <td className="table-actions-cell">
+                        <div className="table-actions">
+                          <button
+                            type="button"
+                            className="icon-btn icon-btn-edit"
+                            onClick={() => startEdit(row)}
+                            disabled={loading}
+                            aria-label="Edit shipment"
+                            title="Edit"
+                          >
+                            <svg
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              aria-hidden="true"
+                            >
+                              <path d="M12 20h9" />
+                              <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z" />
+                            </svg>
+                          </button>
+
+                          <button
+                            type="button"
+                            className="icon-btn icon-btn-delete"
+                            onClick={() => handleDelete(row.id)}
+                            disabled={loading}
+                            aria-label="Delete shipment"
+                            title="Delete"
+                          >
+                            <svg
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              aria-hidden="true"
+                            >
+                              <path d="M3 6h18" />
+                              <path d="M8 6V4h8v2" />
+                              <path d="M19 6l-1 14H6L5 6" />
+                              <path d="M10 11v5" />
+                              <path d="M14 11v5" />
+                            </svg>
+                          </button>
+                        </div>
                       </td>
                     )}
                   </tr>
